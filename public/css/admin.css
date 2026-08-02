@@ -1,0 +1,231 @@
+/* =========================================
+   ATLAS JIWA — Admin Dashboard Styles (admin.html)
+   Token disamakan dengan auth.css / atlas-jiwa.html.
+   ========================================= */
+
+:root{
+    --bg: #F1F3EF;
+    --surface: #FFFFFF;
+    --surface-2: #E8EBE5;
+    --text: #1E2321;
+    --muted: #5B655F;
+    --accent: #A97C42;
+    --accent-soft: #E7D9C3;
+    --teal: #3F6B66;
+    --teal-soft: #DCE7E4;
+    --border: #DCE1D8;
+    --danger: #B0463F;
+    --danger-soft: #F3DEDC;
+    --success: #3F6B4A;
+    --success-soft: #DCEBE0;
+    --shadow: 0 20px 50px -25px rgba(30,40,35,0.25);
+    --radius: 18px;
+    --maxw: 1240px;
+}
+html[data-theme="dark"]{
+    --bg: #101513;
+    --surface: #1A211F;
+    --surface-2: #202824;
+    --text: #E9EBE6;
+    --muted: #9BA69F;
+    --accent: #D6AD73;
+    --accent-soft: #3A2E1E;
+    --teal: #7CACA5;
+    --teal-soft: #1D2B29;
+    --border: #2A322E;
+    --danger: #E0837D;
+    --danger-soft: #3A2220;
+    --success: #86C79A;
+    --success-soft: #1C2B21;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.55);
+}
+
+*{box-sizing:border-box;}
+body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Manrope', system-ui, sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.serif{font-family:'Fraunces', serif;}
+
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+
+/* ---------- Header ---------- */
+header.admin-header{
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    padding:16px 0;
+    position:sticky; top:0; z-index:20;
+}
+.admin-header-inner{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+.admin-brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text);}
+.admin-brand-name{font-family:'Fraunces', serif; font-weight:600; font-size:1.05rem;}
+.admin-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.68rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    background:var(--accent-soft);
+    color:var(--accent);
+    padding:3px 9px;
+    border-radius:999px;
+}
+.admin-header-controls{display:flex; align-items:center; gap:10px;}
+.icon-btn{
+    width:36px; height:36px; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:0.95rem;
+}
+.atlas-user-name{font-size:0.82rem; color:var(--muted);}
+.atlas-logout-btn{
+    font-family:inherit; font-size:0.82rem; font-weight:600; color:var(--teal);
+    background:transparent; border:1px solid var(--border); border-radius:999px;
+    padding:7px 14px; cursor:pointer;
+}
+.atlas-logout-btn:hover{background:var(--teal); color:#F7FBF9;}
+html[data-theme="dark"] .atlas-logout-btn:hover{color:#0E1513;}
+
+main{padding:32px 0 64px;}
+
+/* ---------- Stat cards ---------- */
+.stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:18px;
+    margin-bottom:36px;
+}
+.stat-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px;
+    box-shadow:var(--shadow);
+}
+.stat-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin-bottom:8px;
+}
+.stat-value{font-size:2rem; font-weight:700; font-family:'Fraunces', serif;}
+
+/* ---------- Panels ---------- */
+.panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    margin-bottom:28px;
+    overflow:hidden;
+}
+.panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    padding:20px 22px;
+    border-bottom:1px solid var(--border);
+}
+.panel-head h2{margin:0; font-size:1.2rem; font-weight:600;}
+.panel-body{padding:18px 22px 22px;}
+
+.panel-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+.search-input{
+    font-family:inherit;
+    font-size:0.88rem;
+    padding:9px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    min-width:220px;
+}
+.btn-sm{
+    font-family:inherit;
+    font-size:0.82rem;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text);
+    cursor:pointer;
+    transition:all .2s ease;
+    white-space:nowrap;
+}
+.btn-sm:hover{border-color:var(--teal); color:var(--teal);}
+.btn-sm.primary{background:var(--teal); color:#F7FBF9; border-color:var(--teal);}
+html[data-theme="dark"] .btn-sm.primary{color:#0E1513;}
+.btn-sm.danger{color:var(--danger); border-color:var(--danger-soft);}
+.btn-sm.danger:hover{background:var(--danger-soft);}
+
+/* ---------- Table ---------- */
+.table-scroll{overflow-x:auto;}
+table.data-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.86rem;
+}
+table.data-table th, table.data-table td{
+    padding:10px 12px;
+    text-align:left;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+}
+table.data-table th{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.7rem;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--muted);
+}
+table.data-table tbody tr:hover{background:var(--surface-2);}
+.role-badge, .status-badge{
+    font-size:0.72rem;
+    font-weight:700;
+    padding:3px 9px;
+    border-radius:999px;
+}
+.role-badge.admin{background:var(--accent-soft); color:var(--accent);}
+.role-badge.user{background:var(--surface-2); color:var(--muted);}
+.status-badge.active{background:var(--success-soft); color:var(--success);}
+.status-badge.suspended{background:var(--danger-soft); color:var(--danger);}
+
+.row-actions{display:flex; gap:6px;}
+
+.empty-state{padding:28px; text-align:center; color:var(--muted); font-size:0.9rem;}
+
+/* ---------- Modal (edit user) ---------- */
+.modal-overlay{
+    position:fixed; inset:0; background:rgba(16,21,19,0.5);
+    display:none; align-items:center; justify-content:center; padding:20px; z-index:100;
+}
+.modal-overlay.open{display:flex;}
+.modal-card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    max-width:420px; width:100%;
+    padding:26px;
+}
+.modal-card h3{margin:0 0 16px;}
+.modal-field{display:flex; flex-direction:column; gap:5px; margin-bottom:14px;}
+.modal-field label{font-size:0.8rem; font-weight:600;}
+.modal-field input, .modal-field select{
+    font-family:inherit; font-size:0.9rem; padding:9px 12px;
+    border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text);
+}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+
+.banner{
+    display:none; font-size:0.85rem; padding:10px 14px; border-radius:12px; margin-bottom:16px;
+}
+.banner.show{display:block;}
+.banner.error{background:var(--danger-soft); color:var(--danger);}
+.banner.success{background:var(--success-soft); color:var(--success);}
+
+@media (max-width:720px){
+    .panel-head{flex-direction:column; align-items:flex-start;}
+}

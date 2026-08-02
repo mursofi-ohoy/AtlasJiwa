@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS JIWA — Curhat Kendali Impuls &amp; Adiksi | Psikologi Adiksi Digital</title> 
+<meta name="description" content="ATLAS JIWA — ruang edukasi dan rujukan bantuan profesional untuk gangguan kendali impuls dan adiksi: adiksi zat, adiksi digital, adiksi perilaku, dan disfungsi regulasi diri.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,480;0,9..144,600;1,9..144,460&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="js/auth-guard.js"></script>
+<style>
+  :root{
+    --bg: #F1F3EF;
+    --surface: #FFFFFF;
+    --surface-2: #E8EBE5;
+    --text: #1E2321;
+    --muted: #5B655F;
+    --accent: #A97C42;
+    --accent-soft: #E7D9C3;
+    --teal: #3F6B66;
+    --teal-soft: #DCE7E4;
+    --border: #DCE1D8;
+    --shadow: 0 20px 50px -25px rgba(30,40,35,0.25);
+    --radius: 20px;
+    --maxw: 1180px;
+  }
+  html[data-theme="dark"]{
+    --bg: #101513;
+    --surface: #1A211F;
+    --surface-2: #202824;
+    --text: #E9EBE6;
+    --muted: #9BA69F;
+    --accent: #D6AD73;
+    --accent-soft: #3A2E1E;
+    --teal: #7CACA5;
+    --teal-soft: #1D2B29;
+    --border: #2A322E;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.55);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Manrope',system-ui,sans-serif;
+    line-height:1.65;
+    transition:background .4s ease, color .4s ease;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important;}
+  }
+  h1,h2,h3,.serif{font-family:'Fraunces',serif;}
+  p{color:var(--muted);}
+  a{color:inherit;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    font-weight:500;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:14px 26px; border-radius:999px;
+    font-weight:600; font-size:0.95rem;
+    text-decoration:none; cursor:pointer; border:1px solid transparent;
+    transition:transform .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{background:var(--teal); color:#F7FBF9;}
+  html[data-theme="dark"] .btn-primary{color:#0E1513;}
+  .btn-primary:hover{box-shadow:0 14px 30px -12px var(--teal);}
+  .btn-ghost{background:transparent; border-color:var(--border); color:var(--text);}
+  .btn-ghost:hover{background:var(--surface-2);}
+
+  /* Header */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav{display:flex; align-items:center; justify-content:space-between; padding:16px 0;}
+  .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text);}
+  .brand-mark{width:34px; height:34px; flex:0 0 auto;}
+  .brand-name{font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem; letter-spacing:.01em;}
+  nav.links{display:flex; gap:26px; align-items:center;}
+  nav.links a{font-size:0.92rem; text-decoration:none; color:var(--muted); font-weight:500;}
+  nav.links a:hover{color:var(--text);}
+  .controls{display:flex; align-items:center; gap:10px;}
+  .pill-toggle{
+    display:flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;
+    font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:500;
+  }
+  .pill-toggle button{
+    border:none; background:transparent; color:var(--muted); padding:8px 13px; cursor:pointer;
+    letter-spacing:.06em;
+  }
+  .pill-toggle button.active{background:var(--teal); color:#F7FBF9;}
+  html[data-theme="dark"] .pill-toggle button.active{color:#0E1513;}
+  .icon-btn{
+    width:38px; height:38px; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:1rem;
+  }
+  .mobile-nav-toggle{display:none;}
+
+  .atlas-user-name{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.78rem;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .atlas-logout-btn{
+    font-family:inherit;
+    font-size:0.82rem;
+    font-weight:600;
+    color:var(--teal);
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:7px 14px;
+    cursor:pointer;
+    transition:all .25s ease;
+  }
+  .atlas-logout-btn:hover{background:var(--teal); color:#F7FBF9; border-color:var(--teal);}
+  html[data-theme="dark"] .atlas-logout-btn:hover{color:#0E1513;}
+
+  /* Hero */
+  .hero{padding:76px 0 40px; position:relative; overflow:hidden;}
+  .hero-grid{display:grid; grid-template-columns:1.1fr 0.9fr; gap:56px; align-items:center;}
+  .hero h1{font-size:clamp(2.4rem, 5vw, 3.6rem); line-height:1.08; margin:18px 0 22px; font-weight:600;}
+  .hero h1 em{font-style:italic; color:var(--accent); font-weight:460;}
+  .hero p.lead{font-size:1.08rem; max-width:52ch; margin-bottom:32px;}
+  .hero-actions{display:flex; gap:14px; flex-wrap:wrap;}
+  .hero-visual-wrap{display:flex; align-items:center; justify-content:center;}
+  .hero-visual{width:100%; max-width:380px; animation:breathe 7s ease-in-out infinite;}
+  @keyframes breathe{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.035);} }
+
+  .disclaimer{
+    margin:8px 0 60px;
+    background:var(--teal-soft);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 26px;
+    display:flex; gap:16px; align-items:flex-start;
+  }
+  .disclaimer .mark{font-size:1.4rem; line-height:1;}
+  .disclaimer p{margin:0; color:var(--text); font-size:0.94rem;}
+  .disclaimer strong{color:var(--teal); font-family:'Fraunces',serif; font-weight:600;}
+
+  section{padding:64px 0;}
+  .section-head{max-width:60ch; margin-bottom:40px;}
+  .section-head h2{font-size:clamp(1.7rem, 3vw, 2.3rem); margin:10px 0 12px; font-weight:600;}
+
+  .about-grid{display:grid; grid-template-columns:1.2fr 1fr; gap:48px; align-items:start;}
+  .about-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:28px; box-shadow:var(--shadow);
+  }
+  .about-card h3{margin:0 0 10px; font-size:1.15rem; font-weight:600;}
+  .about-card .ig-link{
+    display:inline-flex; align-items:center; gap:8px; margin-top:14px;
+    text-decoration:none; color:var(--teal); font-weight:600; font-size:0.92rem;
+  }
+  .about-card .ig-link:hover{text-decoration:underline;}
+
+  /* Welcome / screening CTA card */
+  .welcome-section .card{
+    max-width:640px;
+    margin:0 auto;
+    text-align:center;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:48px 40px;
+  }
+  .welcome-section .card h2{
+    font-size:clamp(1.6rem, 3vw, 2.1rem);
+    font-weight:600;
+    margin-bottom:14px;
+  }
+  .welcome-section .card-description{
+    font-size:1rem;
+    margin-bottom:28px;
+  }
+
+  /* Topics */
+  .category-block{margin-bottom:52px;}
+  .category-head{display:flex; align-items:baseline; gap:14px; margin-bottom:22px; flex-wrap:wrap;}
+  .category-head h3{font-size:1.25rem; margin:0; font-weight:600;}
+  .category-head .count{font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--muted);}
+  .topic-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(255px,1fr)); gap:20px;}
+  .topic-card{
+    display:flex; flex-direction:column; gap:10px;
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:22px; text-decoration:none; color:var(--text);
+    transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  .topic-card:hover{transform:translateY(-4px); box-shadow:var(--shadow); border-color:var(--teal);}
+  .topic-icon{font-size:1.6rem;}
+  .topic-card h4{margin:0; font-size:1.02rem; font-family:'Fraunces',serif; font-weight:600;}
+  .topic-card p{margin:0; font-size:0.88rem; color:var(--muted);}
+  .topic-link{margin-top:auto; font-size:0.82rem; font-weight:600; color:var(--teal);}
+
+  /* Help section */
+  .help-section{background:var(--surface-2); border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  .help-grid{display:grid; grid-template-columns:1fr 1fr; gap:40px;}
+  .help-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:26px;}
+  .help-card h3{margin:0 0 14px; font-size:1.1rem; font-weight:600;}
+  .help-card ul{margin:0; padding-left:20px; color:var(--muted); font-size:0.93rem;}
+  .help-card li{margin-bottom:8px;}
+  .contact-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px;}
+  .contact-list li{
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:12px 16px;
+  }
+  html[data-theme="dark"] .contact-list li{background:var(--bg);}
+  .contact-list .name{font-weight:600; font-size:0.9rem;}
+  .contact-list .sub{font-size:0.78rem; color:var(--muted); display:block;}
+  .contact-list a.call{
+    font-family:'IBM Plex Mono',monospace; font-size:0.82rem; text-decoration:none;
+    color:var(--teal); border:1px solid var(--teal); padding:6px 12px; border-radius:999px; white-space:nowrap;
+  }
+  .contact-list a.call:hover{background:var(--teal); color:#F7FBF9;}
+  html[data-theme="dark"] .contact-list a.call:hover{color:#0E1513;}
+
+  footer{padding:50px 0 34px;}
+  .footer-grid{display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:32px;}
+  .footer-brand p{max-width:40ch; font-size:0.88rem;}
+  .footer-links{display:flex; gap:36px; flex-wrap:wrap;}
+  .footer-links a{font-size:0.88rem; text-decoration:none; color:var(--muted);}
+  .footer-links a:hover{color:var(--text);}
+  .footer-bottom{margin-top:28px; font-size:0.78rem; color:var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+
+  .fab{
+    position:fixed; bottom:26px; right:26px; z-index:60;
+    background:var(--teal); color:#F7FBF9; text-decoration:none;
+    padding:14px 20px; border-radius:999px; font-weight:700; font-size:0.88rem;
+    box-shadow:0 16px 34px -14px rgba(0,0,0,0.4); display:flex; align-items:center; gap:8px;
+  }
+  html[data-theme="dark"] .fab{color:#0E1513;}
+
+  @media (max-width:900px){
+    .hero-grid, .about-grid, .help-grid{grid-template-columns:1fr;}
+    .hero{padding-top:52px;}
+    nav.links{display:none;}
+  }
+  @media (max-width:560px){
+    .disclaimer{flex-direction:column;}
+    .footer-bottom{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#beranda">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="7" fill="var(--accent)"/>
+        <path d="M8 14C8 14 12 6 20 6C28 6 32 14 32 14" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M8 26C8 26 12 34 20 34C28 34 32 26 32 26" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">ATLAS JIWA</span>
+    </a>
+    <nav class="links">
+      <a href="#beranda" data-en="Home">Beranda</a>
+      <a href="#tentang" data-en="About">Tentang</a>
+      <a href="#topik" data-en="Topics">Topik</a>
+      <a href="#bantuan" data-en="Professional Help">Bantuan Profesional</a>
+    </nav>
+    <div class="controls">
+      <div class="pill-toggle" role="group" aria-label="Bahasa">
+        <button id="lang-id" class="active" onclick="setLang('id')">ID</button>
+        <button id="lang-en" onclick="setLang('en')">EN</button>
+      </div>
+      <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Ganti tema" title="Ganti tema gelap/terang">🌙</button>
+      <span id="atlasUserName" class="atlas-user-name" hidden></span>
+      <button id="atlasLogoutBtn" class="atlas-logout-btn" data-en="Log out" hidden>Keluar</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="beranda">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow"
+              data-en="Psychology of Impulse Control &amp; Digital Addiction">
+          Psikologi Kendali Impuls &amp; Adiksi Digital
+        </span>
+
+        <h1
+          data-en="A place to <em>support</em>, not judge, those who are struggling.">
+          Ruang untuk <em>menaungi</em>, bukan menghakimi, jiwa yang sedang berjuang.
+        </h1>
+
+        <p class="lead"
+           data-en="ATLAS JIWA brings together 14 educational guides covering impulse-control disorders and addiction—from substance addiction to digital addiction. Every topic is written in a calm, easy-to-understand, and compassionate way, while also providing access to professional mental health resources.">
+          ATLAS JIWA menghimpun 14 panduan edukasi tentang gangguan kendali impuls dan adiksi — dari kecanduan zat hingga adiksi digital — ditulis dengan tenang, mudah dipahami, dan berbasis welas asih, lengkap dengan akses ke bantuan profesional.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary"
+             href="#topik"
+             data-en="Explore All 14 Topics">
+             Jelajahi 14 Topik
+          </a>
+
+          <a class="btn btn-ghost"
+             href="#bantuan"
+             data-en="Find Professional Help">
+             Cari Bantuan Sekarang
+          </a>
+        </div>
+      </div>
+      <div class="hero-visual-wrap">
+        <svg class="hero-visual" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="200" cy="200" r="46" fill="var(--accent-soft)"/>
+          <circle cx="200" cy="200" r="22" fill="var(--accent)"/>
+          <path d="M90 150C90 150 120 60 200 60C280 60 310 150 310 150" stroke="var(--teal)" stroke-width="10" stroke-linecap="round" opacity="0.85"/>
+          <path d="M90 250C90 250 120 340 200 340C280 340 310 250 310 250" stroke="var(--teal)" stroke-width="10" stroke-linecap="round" opacity="0.85"/>
+          <path d="M60 190C60 190 70 120 140 95" stroke="var(--teal)" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+          <path d="M340 190C340 190 330 120 260 95" stroke="var(--teal)" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+          <path d="M60 210C60 210 70 280 140 305" stroke="var(--teal)" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+          <path d="M340 210C340 210 330 280 260 305" stroke="var(--teal)" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="disclaimer">
+        <span class="mark">⚕️</span>
+        <p><strong data-en="Disclaimer:">Disclaimer:</strong>
+          <span data-en=" All content on this site is educational and does not replace a diagnosis, advice, or treatment from a licensed mental health professional. If you or someone close to you is struggling, please reach out to a professional &mdash; see the ">Seluruh konten pada situs ini bersifat edukatif dan tidak menggantikan diagnosis, saran, atau pengobatan dari tenaga profesional kesehatan jiwa berlisensi. Jika Anda atau orang terdekat sedang mengalami kesulitan, segera hubungi profesional &mdash; lihat bagian</span>
+          <a href="#bantuan" style="color:var(--teal); font-weight:600;" data-en="Professional Help section">Bantuan Profesional</a><span data-en=" below."> di bawah.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tentang">
+    <div class="wrap about-grid">
+      <div class="section-head" style="margin-bottom:0;">
+        <span class="eyebrow" data-en="About This Space">Tentang Ruang Ini</span>
+        <h2 data-en="Understanding impulse control and addiction, one topic at a time">Memahami kendali impuls dan adiksi, satu topik demi satu topik</h2>
+        <p data-en="ATLAS JIWA is a hub of listening and educational content: 14 self-contained educational pages, each covering one form of impulse control disorder or addiction in depth &mdash; what it is, its causes, warning signs, impact, and when and where to seek help. All written with a calm, safe, non-judgmental tone.">ATLAS JIWA: 14 halaman edukasi mandiri yang masing-masing membahas satu bentuk gangguan kendali impuls atau adiksi secara mendalam &mdash; pengertian, penyebab, tanda-tanda, dampak, hingga kapan dan ke mana mencari bantuan. Semua ditulis dalam nuansa yang tenang, aman, dan tanpa menghakimi.</p>
+      </div>
+      <div class="about-card">
+        <h3 data-en="Need someone to talk to?">Butuh teman bercerita?</h3>
+        <p data-en="Beyond articles, Atlas Jiwa also has a listening space on Instagram for those who want to share their story first, before deciding on further steps.">Selain artikel, Atlas Jiwa juga memiliki ruang curhat di Instagram bagi yang ingin bercerita terlebih dahulu, sebelum memutuskan langkah selanjutnya.</p>
+        <p style="font-size:0.82rem; margin-top:10px;" data-en="Note: this space is peer-support and not a substitute for professional treatment.">Catatan: ruang ini bersifat dukungan sebaya dan bukan pengganti penanganan profesional.</p>
+        <a class="ig-link" href="https://www.instagram.com/psiko_listener" target="_blank" rel="noopener noreferrer">
+          📸 @psiko_listener <span data-en="&mdash; Atlas Jiwa Listening Space →">&mdash; Atlas Jiwa Tempat Curhat →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="welcome-section">
+    <div class="wrap">
+      <div class="card">
+        <h2 data-en="Welcome to ATLAS JIWA">Selamat Datang di ATLAS JIWA</h2>
+        <p class="card-description"
+           data-en="Start your psychological self-screening to better understand your mental well-being. This screening is educational and not a substitute for a professional diagnosis.">
+          Mulailah screening psikologi untuk membantu memahami kondisi kesehatan mental Anda. Screening ini bersifat edukatif dan bukan pengganti diagnosis profesional.
+        </p>
+        <a class="btn btn-primary"
+           href="./screening.html"
+           data-en="Start Psychological Screening">
+          Mulai Screening Psikologi
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="topik">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow" data-en="14 Topics">14 Topik</span>
+        <h2 data-en="Choose the topic closest to your experience">Pilih topik yang paling dekat dengan pengalaman Anda</h2>
+        <p data-en="Grouped into four categories so it is easier to find the most relevant page. Every link opens the full ATLAS JIWA page for that topic.">Dikelompokkan ke dalam empat kategori agar lebih mudah menemukan halaman yang paling relevan. Setiap tautan membuka halaman ATLAS JIWA lengkap untuk topik tersebut.</p>
+      </div>
+
+      <div class="category-block">
+        <div class="category-head">
+          <h3 data-en="Substance &amp; Physical Addiction">Adiksi Zat &amp; Fisik</h3>
+          <span class="count">3 <span data-en="topics">topik</span></span>
+        </div>
+        <div class="topic-grid">
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-tembakau.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🚬</span>
+            <h4 data-en="Tobacco Addiction">Kecanduan Tembakau</h4>
+            <p data-en="How nicotine hijacks the brain's reward system and why quitting is often not a matter of willpower alone.">Bagaimana nikotin membajak sistem penghargaan otak dan mengapa berhenti bukan sekadar soal kemauan.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-alkohol.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🥃</span>
+            <h4 data-en="Alcohol Addiction">Kecanduan Alkohol</h4>
+            <p data-en="Recognizing the line between social drinking and dependence, and its impact on the body and relationships.">Mengenali batas antara minum sosial dan ketergantungan, serta dampaknya pada tubuh dan hubungan.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-junk-food.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🍔</span>
+            <h4 data-en="Junk Food Addiction">Kecanduan Junk Food</h4>
+            <p data-en="When food becomes an emotional escape route, and how the pattern can be gently changed.">Ketika makanan menjadi pelarian emosi, dan bagaimana pola ini bisa diubah secara perlahan.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="category-block">
+        <div class="category-head">
+          <h3 data-en="Digital &amp; Screen Addiction">Adiksi Digital &amp; Layar</h3>
+          <span class="count">5 <span data-en="topics">topik</span></span>
+        </div>
+        <div class="topic-grid">
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-pornografi.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🌫️</span>
+            <h4 data-en="Problematic Pornography Use">Kecanduan Pornografi</h4>
+            <p data-en="Understanding compulsive viewing patterns and their effect on the brain and relationships, with care and without shame.">Memahami pola konsumsi kompulsif dan dampaknya pada otak serta hubungan, dengan penuh kepedulian dan tanpa rasa malu.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-doom-scrolling.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🌀</span>
+            <h4 data-en="Doom Scrolling">Doom Scrolling</h4>
+            <p data-en="The endless-scroll habit that feeds anxiety instead of relieving it.">Kebiasaan menggulir tanpa henti yang justru memberi makan kecemasan, bukan meredakannya.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-binge-watching.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">📺</span>
+            <h4 data-en="Binge-Watching">Binge-Watching</h4>
+            <p data-en="When 'just one more episode' quietly takes over sleep, time, and daily routines.">Ketika "satu episode lagi" diam-diam mengambil alih waktu tidur dan rutinitas harian.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-game-online.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🎮</span>
+            <h4 data-en="Online Game Addiction">Kecanduan Game Online</h4>
+            <p data-en="Recognizing gaming disorder, its triggers, and its effects on study, work, and social life.">Mengenali gaming disorder, pemicunya, dan dampaknya pada sekolah, pekerjaan, serta kehidupan sosial.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-top-up-game-online.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">💠</span>
+            <h4 data-en="Online Game Top-Up Addiction">Kecanduan Top-Up Game Online</h4>
+            <p data-en="How microtransactions and loot boxes are designed to trigger repeated impulsive spending.">Bagaimana microtransaction dan loot box dirancang untuk memicu belanja impulsif yang berulang.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="category-block">
+        <div class="category-head">
+          <h3 data-en="Behavioral &amp; Financial Addiction">Adiksi Perilaku &amp; Finansial</h3>
+          <span class="count">3 <span data-en="topics">topik</span></span>
+        </div>
+        <div class="topic-grid">
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-berbelanja-online.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🛍️</span>
+            <h4 data-en="Online Shopping Addiction">Kecanduan Berbelanja Online</h4>
+            <p data-en="When shopping becomes a way to regulate mood rather than meet a real need.">Ketika belanja menjadi cara meregulasi suasana hati, bukan lagi memenuhi kebutuhan yang nyata.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-adiksi-judi-online.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🎲</span>
+            <h4 data-en="Online Gambling Addiction">Judi Online</h4>
+            <p data-en="Understanding the near-miss cycle and false hope that keep online gambling addiction going.">Memahami siklus "hampir menang" dan harapan semu yang membuat kecanduan judi online terus berulang.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-impulsivitas-keuangan.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">💸</span>
+            <h4 data-en="Financial Impulsivity">Impulsivitas Keuangan</h4>
+            <p data-en="Impulsive spending patterns that keep resurfacing despite good intentions to save.">Pola pengeluaran impulsif yang terus berulang meski sudah berniat untuk menabung.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="category-block" style="margin-bottom:0;">
+        <div class="category-head">
+          <h3 data-en="Self-Regulation Dysfunction">Disfungsi Regulasi Diri</h3>
+          <span class="count">3 <span data-en="topics">topik</span></span>
+        </div>
+        <div class="topic-grid">
+          <a class="topic-card" href="https://atlas-jiwa-disfungsi-menunda-kepuasan-sesaat.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">⏳</span>
+            <h4 data-en="Difficulty Delaying Gratification">Disfungsi Menunda Kepuasan Sesaat</h4>
+            <p data-en="Why choosing a small reward now over a bigger one later can become a lasting pattern.">Mengapa memilih hadiah kecil sekarang dibanding hadiah lebih besar nanti bisa menjadi pola yang menetap.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-gangguan-menahan-amarah.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🔥</span>
+            <h4 data-en="Anger Control Difficulty">Gangguan Menahan Amarah</h4>
+            <p data-en="Recognizing patterns of explosive anger and gentle, practical ways to begin regulating them.">Mengenali pola amarah yang meledak-ledak dan cara-cara sederhana untuk mulai meregulasinya.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+          <a class="topic-card" href="https://atlas-jiwa-gangguan-fokus-akibat-kecanduan.mursofi1.workers.dev/" target="_blank" rel="noopener noreferrer">
+            <span class="topic-icon">🧠</span>
+            <h4 data-en="Focus Difficulty Caused by Addiction">Gangguan Fokus akibat Kecanduan</h4>
+            <p data-en="How chronic overstimulation from addictive habits can quietly erode attention span.">Bagaimana stimulasi berlebih yang kronis dari kebiasaan adiktif dapat mengikis rentang perhatian secara diam-diam.</p>
+            <span class="topic-link" data-en="Read more →">Baca selengkapnya →</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="help-section" id="bantuan">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow" data-en="You Don't Have to Face This Alone">Anda Tidak Harus Menghadapinya Sendiri</span>
+        <h2 data-en="Professional Help">Bantuan Profesional</h2>
+        <p data-en="Reaching out for help is a sign of strength, not weakness. Here is when to seek it and where you can turn.">Mencari bantuan adalah tanda kekuatan, bukan kelemahan. Berikut kapan sebaiknya mencari bantuan dan ke mana Anda bisa menghubungi.</p>
+      </div>
+      <div class="help-grid">
+        <div class="help-card">
+          <h3 data-en="Consider seeking help if:">Pertimbangkan mencari bantuan jika:</h3>
+          <ul>
+            <li data-en="You have tried to stop or change a habit several times but keep going back to it.">Sudah beberapa kali mencoba berhenti atau mengubah kebiasaan tetapi selalu kembali lagi.</li>
+            <li data-en="The habit is starting to affect your health, finances, work, or relationships.">Kebiasaan tersebut mulai memengaruhi kesehatan, keuangan, pekerjaan, atau hubungan Anda.</li>
+            <li data-en="You feel restless, irritable, or anxious when you try to stop.">Merasa gelisah, mudah marah, atau cemas ketika mencoba berhenti.</li>
+            <li data-en="You feel unable to stop on your own, even though you want to.">Merasa tidak mampu berhenti sendiri, meskipun sudah berniat.</li>
+          </ul>
+          <h3 style="margin-top:22px;" data-en="Kinds of help available:">Jenis bantuan yang tersedia:</h3>
+          <ul>
+            <li data-en="Education and professional counseling">Edukasi dan konseling profesional</li>
+            <li data-en="Behavioral therapy">Terapi perilaku (behavioral therapy)</li>
+            <li data-en="Peer support groups">Kelompok dukungan (support group)</li>
+            <li data-en="Medical evaluation when needed">Evaluasi medis bila diperlukan</li>
+          </ul>
+        </div>
+        <div class="help-card">
+          <h3 data-en="📞 Emergency &amp; Professional Contacts">📞 Kontak Darurat &amp; Bantuan Profesional</h3>
+          <p style="font-size:0.86rem; margin-top:-6px; margin-bottom:16px;" data-en="If you or someone close to you is in crisis, please don't hesitate to reach out to the following services:">Jika Anda atau orang terdekat sedang dalam krisis, jangan ragu menghubungi layanan berikut:</p>
+          <ul class="contact-list">
+            <li>
+              <span><span class="name" data-en="National Emergency Line">Layanan Darurat Nasional</span><span class="sub">119</span></span>
+              <a class="call" href="tel:119">📞 119</a>
+            </li>
+            <li>
+              <span><span class="name" data-en="Ministry of Health Mental Health Hotline">Sehat Jiwa Kemenkes</span><span class="sub">119 ext. 8</span></span>
+              <a class="call" href="tel:119">📞 <span data-en="ext.">ext.</span> 8</a>
+            </li>
+            <li>
+              <span><span class="name">Yayasan Pulih</span><span class="sub" data-en="Mental health counseling">Konseling kesehatan jiwa</span></span>
+              <a class="call" href="tel:+622178842565">📞 <span data-en="Call">Telepon</span></a>
+            </li>
+            <li>
+              <span><span class="name">Into The Light Indonesia</span><span class="sub" data-en="Suicide prevention &amp; peer support">Pencegahan bunuh diri &amp; dukungan sebaya</span></span>
+              <a class="call" href="https://www.intothelightid.org" target="_blank" rel="noopener noreferrer">🌐 <span data-en="Website">Website</span></a>
+            </li>
+          </ul>
+          <p style="font-size:0.8rem; margin-top:16px;" data-en="Contact details may change over time; please verify the latest number or channel on the organization's official website before reaching out.">Detail kontak dapat berubah sewaktu-waktu; mohon verifikasi nomor atau kanal terbaru di situs resmi lembaga terkait sebelum menghubungi.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand" style="margin-bottom:10px;">
+          <svg class="brand-mark" width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="7" fill="var(--accent)"/>
+            <path d="M8 14C8 14 12 6 20 6C28 6 32 14 32 14" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+            <path d="M8 26C8 26 12 34 20 34C28 34 32 26 32 26" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span class="brand-name serif">ATLAS JIWA</span>
+        </div>
+        <p data-en="A hub of educational resources on impulse control and addiction, and access to professional help. Written with compassion for the public, patients, families, and students.">Simpul sumber edukasi tentang gangguan kendali impuls dan adiksi, serta akses ke bantuan profesional. Ditulis dengan welas asih untuk masyarakat, pasien, keluarga, dan mahasiswa.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#topik" data-en="14 Topics">14 Topik</a>
+        <a href="#bantuan" data-en="Professional Help">Bantuan Profesional</a>
+        <a href="https://www.instagram.com/psiko_listener" target="_blank" rel="noopener noreferrer">Instagram @psiko_listener</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 ATLAS JIWA · <span data-en="All rights reserved.">Hak cipta dilindungi.</span></span>
+      <span data-en="Educational content — not a substitute for professional diagnosis or treatment.">Konten edukatif — bukan pengganti diagnosis atau pengobatan profesional.</span>
+    </div>
+  </div>
+</footer>
+
+<a class="fab" href="#bantuan" aria-label="Cari bantuan">💬 <span data-en="Need help?">Butuh bantuan?</span></a>
+
+<script>
+  function updateLangButtons(lang){
+    document.getElementById('lang-id').classList.toggle('active', lang === 'id');
+    document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+  }
+
+  function setLang(lang){
+    document.querySelectorAll('[data-en]').forEach(function(el){
+      if (el.dataset.id === undefined){
+        el.dataset.id = el.innerHTML;
+      }
+      if (lang === 'en'){
+        if (el.dataset.en.trim() !== '') el.innerHTML = el.dataset.en;
+      } else {
+        el.innerHTML = el.dataset.id;
+      }
+    });
+    document.documentElement.lang = lang;
+    localStorage.setItem('atlasjiwa-lang', lang);
+    updateLangButtons(lang);
+  }
+
+  function toggleTheme(){
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    document.getElementById('theme-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem('atlasjiwa-theme', next);
+  }
+
+  (function init(){
+    var savedTheme = localStorage.getItem('atlasjiwa-theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = savedTheme || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+
+    var savedLang = localStorage.getItem('atlasjiwa-lang') || 'id';
+    if (savedLang === 'en') setLang('en'); else updateLangButtons('id');
+  })();
+</script>
+
+</body>
+</html>

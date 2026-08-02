@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ATLAS JIWA - Screening Test Psikologi: Kecanduan Doom Scrolling & Online Gaming Addiction">
+    <title>ATLAS JIWA | Screening Test Psikologi Adiksi Digital</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/auth-guard.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Header -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="#top" class="logo">
+                <span class="logo-mark">◈</span>
+                <span class="logo-text">ATLAS <span class="accent">JIWA</span></span>
+            </a>
+            <nav class="main-nav" aria-label="Navigasi utama">
+                <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <ul class="nav-list" id="navList">
+                    <li><a href="#intro" data-id="Pengantar" data-en="Introduction">Pengantar</a></li>
+                    <li><a href="#screening" data-id="Screening" data-en="Screening">Screening</a></li>
+                    <li><a href="#hasil" data-id="Hasil" data-en="Results">Hasil</a></li>
+                    <li><a href="#bantuan" data-id="Bantuan" data-en="Help">Bantuan</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <button class="lang-toggle" id="langToggle" aria-label="Ganti bahasa">
+                    <span class="lang-active">ID</span>/<span class="lang-inactive">EN</span>
+                </button>
+                <button class="theme-toggle" id="themeToggle" aria-label="Ganti tema">
+                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="4"/>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                    </svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+                <span id="atlasUserName" class="atlas-user-name" hidden></span>
+                <button id="atlasLogoutBtn" class="atlas-logout-btn" data-id="Keluar" data-en="Log out" hidden>Keluar</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="top">
+        <div class="container">
+            <p class="hero-eyebrow" data-id="Alat Screening Psikologi · Psikologi Adiksi Digital" data-en="Psychology Screening Tool · Digital Addiction Psychology">Alat Screening Psikologi · Psikologi Adiksi Digital</p>
+            <h1 class="hero-title">
+                <span data-id="Screening Test" data-en="Screening Test">Screening Test</span>
+                <span class="italic" data-id="Adiksi Digital" data-en="Digital Addiction">Adiksi Digital</span>
+            </h1>
+            <p class="hero-subtitle" data-id="Dua instrumen refleksi diri untuk memahami pola perilaku digital Anda — kecanduan doom scrolling dan kecanduan bermain game online. Data yang Anda berikan bersifat rahasia dan hanya untuk refleksi pribadi." data-en="Two self-reflection instruments to understand your digital behavioral patterns — doom scrolling addiction and online gaming addiction. The data you provide is confidential and for personal reflection only.">
+                Dua instrumen refleksi diri untuk memahami pola perilaku digital Anda — kecanduan <em>doom scrolling</em> dan kecanduan bermain game online. Data yang Anda berikan bersifat rahasia dan hanya untuk refleksi pribadi.
+            </p>
+            <div class="hero-divider"><span>◈</span></div>
+        </div>
+    </section>
+
+    <!-- Disclaimer Banner -->
+    <aside class="disclaimer" role="note">
+        <div class="container disclaimer-inner">
+            <div class="disclaimer-icon">⚕</div>
+            <div class="disclaimer-content">
+                <strong data-id="Penting — Bukan Alat Diagnosis Klinis" data-en="Important — Not a Clinical Diagnostic Tool">Penting — Bukan Alat Diagnosis Klinis</strong>
+                <p data-id="Screening test ini bersifat edukatif dan reflektif, bukan pengganti diagnosis atau konsultasi dengan psikolog, psikiater, atau tenaga kesehatan mental berlisensi. Jika Anda merasa mengalami kesulitan yang signifikan, silakan hubungi profesional." data-en="This screening test is educational and reflective, not a substitute for diagnosis or consultation with a licensed psychologist, psychiatrist, or mental health professional. If you feel you are experiencing significant difficulties, please reach out to a professional.">
+                    Screening test ini bersifat edukatif dan reflektif, bukan pengganti diagnosis atau konsultasi dengan psikolog, psikiater, atau tenaga kesehatan mental berlisensi. Jika Anda merasa mengalami kesulitan yang signifikan, silakan hubungi profesional.
+                </p>
+            </div>
+            <a href="#bantuan" class="disclaimer-cta" data-id="Cari Bantuan" data-en="Seek Help">Cari Bantuan</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+        <div class="container">
+
+            <!-- Section: Introduction -->
+            <section class="section" id="intro">
+                <div class="section-label">01</div>
+                <h2 class="section-title" data-id="Pengantar Screening Test" data-en="Screening Test Introduction">Pengantar Screening Test</h2>
+                <div class="section-body">
+                    <p data-id="Instrumen ini dirancang untuk membantu Anda merefleksikan hubungan dengan perilaku digital — khususnya doom scrolling (menggulir konten negatif tanpa henti) dan bermain game online. Jawablah setiap pertanyaan dengan jujur berdasarkan pengalaman Anda dalam 30 hari terakhir. Tidak ada jawaban benar atau salah." data-en="This instrument is designed to help you reflect on your relationship with digital behaviors — specifically doom scrolling (endlessly scrolling negative content) and online gaming. Answer each question honestly based on your experience in the last 30 days. There are no right or wrong answers.">
+                        Instrumen ini dirancang untuk membantu Anda merefleksikan hubungan dengan perilaku digital — khususnya <em>doom scrolling</em> (menggulir konten negatif tanpa henti) dan bermain game online. Jawablah setiap pertanyaan dengan jujur berdasarkan pengalaman Anda dalam <strong>30 hari terakhir</strong>. Tidak ada jawaban benar atau salah.
+                    </p>
+
+                    <div class="intro-grid">
+                        <article class="intro-card">
+                            <div class="intro-icon">◉</div>
+                            <h3 data-id="9 Dimensi Penilaian" data-en="9 Assessment Dimensions">9 Dimensi Penilaian</h3>
+                            <p data-id="Frekuensi, durasi, intensitas, dampak kehidupan, pengendalian diri, konsekuensi sosial, akademik/pekerjaan, finansial, dan kecenderungan mengulang perilaku." data-en="Frequency, duration, intensity, life impact, self-control, social consequences, academic/work, financial, and tendency to repeat behavior.">
+                                Frekuensi, durasi, intensitas, dampak kehidupan, pengendalian diri, konsekuensi sosial, akademik/pekerjaan, finansial, dan kecenderungan mengulang perilaku.
+                            </p>
+                        </article>
+                        <article class="intro-card">
+                            <div class="intro-icon">✎</div>
+                            <h3 data-id="Pertanyaan Kualitatif" data-en="Qualitative Questions">Pertanyaan Kualitatif</h3>
+                            <p data-id="Setiap bagian dilengkapi pertanyaan naratif terbuka untuk menangkap pengalaman subjektif Anda secara lebih mendalam." data-en="Each section includes open-ended narrative questions to capture your subjective experience more deeply.">
+                                Setiap bagian dilengkapi pertanyaan naratif terbuka untuk menangkap pengalaman subjektif Anda secara lebih mendalam.
+                            </p>
+                        </article>
+                        <article class="intro-card">
+                            <div class="intro-icon">🔒</div>
+                            <h3 data-id="Privasi & Perlindungan Data" data-en="Privacy & Data Protection">
+    Privasi & Perlindungan Data
+</h3>
+
+<p
+data-id="Kami berkomitmen untuk melindungi privasi Anda. Data diproses secara aman dan digunakan sesuai dengan persetujuan Anda serta Kebijakan Privasi yang berlaku."
+data-en="We are committed to protecting your privacy. Your data is processed securely and used in accordance with your consent and our Privacy Policy.">
+    Kami berkomitmen untuk melindungi privasi Anda. Data diproses secara aman dan digunakan sesuai dengan persetujuan Anda serta Kebijakan Privasi yang berlaku.
+</p>                            </p>
+                        </article>
+                    </div>
+
+                    <!-- Test Selector -->
+                    <div class="test-selector">
+                        <h3 class="subsection-title" data-id="Pilih Screening Test" data-en="Choose Screening Test">Pilih Screening Test</h3>
+                        <div class="test-options">
+                            <button class="test-option active" data-test="scrolling">
+                                <div class="test-option-icon">◎</div>
+                                <div class="test-option-content">
+                                    <strong data-id="Doom Scrolling" data-en="Doom Scrolling">Doom Scrolling</strong>
+                                    <span data-id="113 item kuantitatif · 21 pertanyaan kualitatif" data-en="113 quantitative items · 21 qualitative questions">113 item kuantitatif · 21 pertanyaan kualitatif</span>
+                                </div>
+                            </button>
+                            <button class="test-option" data-test="gaming">
+                                <div class="test-option-icon">◈</div>
+                                <div class="test-option-content">
+                                    <strong data-id="Online Gaming" data-en="Online Gaming">Online Gaming</strong>
+                                    <span data-id="117 item kuantitatif · 21 pertanyaan kualitatif" data-en="117 quantitative items · 21 qualitative questions">117 item kuantitatif · 21 pertanyaan kualitatif</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Screening Test -->
+            <section class="section" id="screening">
+                <div class="section-label">02</div>
+                <h2 class="section-title" id="screeningTitle" data-id="Screening Doom Scrolling" data-en="Doom Scrolling Screening">Screening Doom Scrolling</h2>
+                <div class="section-body">
+
+                    <!-- Test Progress -->
+                    <div class="test-progress">
+                        <div class="progress-info">
+                            <span data-id="Kemajuan Pengisian" data-en="Completion Progress">Kemajuan Pengisian</span>
+                            <span class="progress-percent" id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="answeredCount" data-id-base="terjawab dari" data-en-base="answered of">0 terjawab dari 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Screening Container -->
+                    <div id="screeningContainer">
+                        <!-- Diisi oleh JavaScript -->
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="screening-actions">
+                        <button class="btn btn-primary" id="calculateBtn" data-id="Hitung Hasil" data-en="Calculate Results">Hitung Hasil</button>
+                        <button class="btn btn-secondary" id="resetBtn" data-id="Reset Jawaban" data-en="Reset Answers">Reset Jawaban</button>
+                        <button class="btn btn-outline" id="saveBtn" data-id="Simpan Progress" data-en="Save Progress">Simpan Progress</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Results -->
+            <section class="section" id="hasil">
+                <div class="section-label">03</div>
+                <h2 class="section-title" data-id="Hasil Screening" data-en="Screening Results">Hasil Screening</h2>
+                <div class="section-body">
+                    <div class="results-container" id="resultsContainer">
+                        <div class="results-placeholder">
+                            <div class="placeholder-icon">◈</div>
+                            <p data-id="Lengkapi screening test di atas, lalu klik 'Hitung Hasil' untuk melihat interpretasi Anda." data-en="Complete the screening test above, then click 'Calculate Results' to see your interpretation.">
+                                Lengkapi screening test di atas, lalu klik "<strong>Hitung Hasil</strong>" untuk melihat interpretasi Anda.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Help -->
+            <section class="section" id="bantuan">
+                <div class="section-label">04</div>
+                <h2 class="section-title" data-id="Akses Bantuan Profesional" data-en="Access Professional Help">Akses Bantuan Profesional</h2>
+                <div class="section-body">
+                    <p data-id="Jika hasil screening menunjukkan tingkat gangguan yang signifikan, atau jika Anda merasa perilaku digital mulai mengganggu kehidupan sehari-hari, pertimbangkan untuk berkonsultasi dengan profesional." data-en="If screening results indicate significant impairment, or if you feel digital behaviors are interfering with daily life, consider consulting a professional.">
+                        Jika hasil screening menunjukkan tingkat gangguan yang signifikan, atau jika Anda merasa perilaku digital mulai mengganggu kehidupan sehari-hari, pertimbangkan untuk berkonsultasi dengan profesional.
+                    </p>
+
+                    <div class="resource-grid">
+                        <a href="https://keslan.kemkes.go.id/" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">☏</div>
+                            <div>
+                                <strong>LANA — 119</strong>
+                                <span data-id="Layanan darurat kesehatan 24 jam" data-en="24-hour health emergency line">Layanan darurat kesehatan 24 jam</span>
+                            </div>
+                        </a>
+                        <a href="https://www.intothelightid.org/" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">♡</div>
+                            <div>
+                                <strong>Into The Light Indonesia</strong>
+                                <span data-id="Komunitas pencegahan & dukungan kesehatan mental" data-en="Mental health prevention & support community">Komunitas pencegahan & dukungan kesehatan mental</span>
+                            </div>
+                        </a>
+                        <a href="https://yayasanpulih.org/" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">✆</div>
+                            <div>
+                                <strong>Yayasan Pulih</strong>
+                                <span data-id="Layanan konseling psikologis profesional" data-en="Professional psychological counseling services">Layanan konseling psikologis profesional</span>
+                            </div>
+                        </a>
+                        <a href="https://www.alodokter.com/cari-dokter/psikolog" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">◈</div>
+                            <div>
+                                <strong>HaloDoc / Alodokter</strong>
+                                <span data-id="Konsultasi daring dengan psikolog & psikiater" data-en="Online consultation with psychologists & psychiatrists">Konsultasi daring dengan psikolog & psikiater</span>
+                            </div>
+                        </a>
+                        <a href="https://himpsi.or.id/" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">◇</div>
+                            <div>
+                                <strong>HIMPSI</strong>
+                                <span data-id="Himpunan Psikologi Indonesia — cari psikolog terdekat" data-en="Indonesian Psychology Association — find nearby psychologists">Himpunan Psikologi Indonesia — cari psikolog terdekat</span>
+                            </div>
+                        </a>
+                        <a href="https://www.kemensos.go.id/" target="_blank" rel="noopener" class="resource-card">
+                            <div class="resource-icon">✧</div>
+                            <div>
+                                <strong>Kemensos — 119 ext 8</strong>
+                                <span data-id="Layanan dukungan psikososial" data-en="Psychosocial support service">Layanan dukungan psikososial</span>
+                            </div>
+                        </a>
+                    </div>
+
+                    <p class="note" data-id="Mencari bantuan profesional adalah langkah berani dan bertanggung jawab. Anda tidak sendirian — banyak orang telah menemukan pemulihan melalui dukungan yang tepat. Gangguan kendali impuls dan adiksi digital adalah kondisi yang dapat dipulihkan." data-en="Seeking professional help is a courageous and responsible step. You are not alone — many people have found recovery through appropriate support. Impulse control disorders and digital addiction are conditions that can be restored.">
+                        <strong>◈</strong> Mencari bantuan profesional adalah <strong>langkah berani dan bertanggung jawab</strong>. Anda tidak sendirian — banyak orang telah menemukan pemulihan melalui dukungan yang tepat. Gangguan kendali impuls dan adiksi digital adalah kondisi yang dapat dipulihkan.
+                    </p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="logo-mark">◈</span>
+                <span>ATLAS JIWA</span>
+            </div>
+            <p class="footer-tagline" data-id="Gangguan Kendali Impuls & Adiksi — Psikologi Adiksi Digital" data-en="Impulse Control Disorders & Addiction — Digital Addiction Psychology">
+                Gangguan Kendali Impuls & Adiksi — Psikologi Adiksi Digital
+            </p>
+            <p class="footer-disclaimer" data-id="Konten edukatif. Bukan pengganti diagnosis atau konsultasi profesional." data-en="Educational content. Not a substitute for professional diagnosis or consultation.">
+                Konten edukatif. Bukan pengganti diagnosis atau konsultasi profesional.
+            </p>
+            <p class="footer-copy">© 2026 Atlas Jiwa</p>
+        </div>
+    </footer>
+
+<script src="js/keyword-dictionary.js"></script>
+<script src="js/nlp-engine.js"></script>
+<script src="js/summary-engine.js"></script>
+<script src="js/agent-bridge.js"></script>
+<script src="js/screening-submit.js"></script>
+<script src="js/script.js"></script>
+
+</body>
+</html>

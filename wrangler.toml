@@ -1,0 +1,26 @@
+name = "atlasjiwa"
+main = "src/index.js"
+compatibility_date = "2026-08-02"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# ---------------------------------------------------------
+# Database D1 — WAJIB dibuat dulu sebelum deploy, lalu isi
+# `database_id` di bawah dengan hasil `wrangler d1 create atlasjiwa-db`.
+#
+#   1) wrangler d1 create atlasjiwa-db
+#      -> salin "database_id" dari output ke baris di bawah
+#   2) wrangler d1 execute atlasjiwa-db --remote --file=./sql/d1_schema.sql
+#   3) wrangler secret put JWT_SECRET
+#      -> isi dengan string acak panjang (mis. hasil `openssl rand -hex 32`)
+#   4) (opsional) wrangler secret put FASTAPI_BASE_URL
+#      -> hanya jika fitur Konsultasi AI (FastAPI+Ollama) sudah kamu
+#         hosting di tempat yang bisa diakses publik
+#   5) wrangler deploy
+# ---------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "atlasjiwa-db"
+database_id = "GANTI_DENGAN_DATABASE_ID_HASIL_WRANGLER_D1_CREATE"

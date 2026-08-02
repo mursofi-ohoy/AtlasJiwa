@@ -1,0 +1,234 @@
+/* =========================================
+   ATLAS JIWA — Auth Page Styles (login.html)
+   Palet & token disamakan dengan atlas-jiwa.html: hijau sage/teal +
+   aksen emas, mode terang/gelap, tipografi Fraunces + Manrope.
+   ========================================= */
+
+:root{
+    --bg: #F1F3EF;
+    --surface: #FFFFFF;
+    --surface-2: #E8EBE5;
+    --text: #1E2321;
+    --muted: #5B655F;
+    --accent: #A97C42;      /* emas */
+    --accent-soft: #E7D9C3;
+    --teal: #3F6B66;        /* hijau sage */
+    --teal-soft: #DCE7E4;
+    --border: #DCE1D8;
+    --danger: #B0463F;
+    --danger-soft: #F3DEDC;
+    --success: #3F6B4A;
+    --success-soft: #DCEBE0;
+    --shadow: 0 20px 50px -25px rgba(30,40,35,0.25);
+    --radius: 20px;
+}
+html[data-theme="dark"]{
+    --bg: #101513;
+    --surface: #1A211F;
+    --surface-2: #202824;
+    --text: #E9EBE6;
+    --muted: #9BA69F;
+    --accent: #D6AD73;
+    --accent-soft: #3A2E1E;
+    --teal: #7CACA5;
+    --teal-soft: #1D2B29;
+    --border: #2A322E;
+    --danger: #E0837D;
+    --danger-soft: #3A2220;
+    --success: #86C79A;
+    --success-soft: #1C2B21;
+    --shadow: 0 20px 60px -20px rgba(0,0,0,0.55);
+}
+
+*{box-sizing:border-box;}
+body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Manrope', system-ui, sans-serif;
+    line-height:1.6;
+    transition:background .4s ease, color .4s ease;
+    -webkit-font-smoothing:antialiased;
+}
+h1,h2,.serif{font-family:'Fraunces', serif;}
+a{color:var(--teal);}
+
+.auth-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 28px;
+}
+.auth-brand{
+    display:flex; align-items:center; gap:10px;
+    text-decoration:none; color:var(--text);
+}
+.auth-brand-name{font-family:'Fraunces', serif; font-weight:600; font-size:1.05rem;}
+.auth-topbar-controls{display:flex; align-items:center; gap:10px;}
+
+.pill-toggle{
+    display:flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; font-weight:500;
+}
+.pill-toggle button{
+    border:none; background:transparent; color:var(--muted); padding:8px 13px; cursor:pointer;
+}
+.pill-toggle button.active{background:var(--teal); color:#F7FBF9;}
+html[data-theme="dark"] .pill-toggle button.active{color:#0E1513;}
+
+.icon-btn{
+    width:38px; height:38px; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:1rem;
+}
+
+.auth-main{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+}
+
+.auth-card{
+    width:100%;
+    max-width:440px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:36px 34px 30px;
+}
+
+.auth-card h1{
+    font-size:1.5rem;
+    font-weight:600;
+    margin:6px 0 4px;
+}
+.auth-card .auth-subtitle{
+    color:var(--muted);
+    font-size:0.92rem;
+    margin:0 0 22px;
+}
+
+.auth-tabs{
+    display:flex;
+    background:var(--surface-2);
+    border-radius:999px;
+    padding:4px;
+    margin-bottom:24px;
+}
+.auth-tab{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:10px 12px;
+    border-radius:999px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:0.88rem;
+    color:var(--muted);
+    cursor:pointer;
+    transition:all .25s ease;
+}
+.auth-tab.active{
+    background:var(--teal);
+    color:#F7FBF9;
+    box-shadow:var(--shadow);
+}
+html[data-theme="dark"] .auth-tab.active{color:#0E1513;}
+
+.auth-form{display:none; flex-direction:column; gap:16px;}
+.auth-form.active{display:flex;}
+
+.field{display:flex; flex-direction:column; gap:6px;}
+.field label{
+    font-size:0.82rem;
+    font-weight:600;
+    color:var(--text);
+}
+.field input{
+    font-family:inherit;
+    font-size:0.95rem;
+    padding:11px 14px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    outline:none;
+    transition:border-color .2s ease, box-shadow .2s ease;
+}
+.field input:focus{
+    border-color:var(--teal);
+    box-shadow:0 0 0 3px var(--teal-soft);
+}
+.field-error{
+    font-size:0.78rem;
+    color:var(--danger);
+    min-height:1em;
+}
+
+.password-field{position:relative;}
+.password-field input{width:100%; padding-right:44px;}
+.password-toggle{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--muted);
+    padding:6px 8px;
+    font-family:inherit;
+}
+.password-toggle:hover{color:var(--teal);}
+
+.auth-submit{
+    margin-top:6px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:13px 20px;
+    border-radius:999px;
+    border:none;
+    background:var(--teal);
+    color:#F7FBF9;
+    font-family:inherit;
+    font-weight:700;
+    font-size:0.95rem;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+html[data-theme="dark"] .auth-submit{color:#0E1513;}
+.auth-submit:hover{transform:translateY(-2px); box-shadow:0 14px 30px -12px var(--teal);}
+.auth-submit:disabled{opacity:0.6; cursor:not-allowed; transform:none; box-shadow:none;}
+
+.auth-banner{
+    display:none;
+    font-size:0.86rem;
+    padding:11px 14px;
+    border-radius:12px;
+    margin-bottom:4px;
+}
+.auth-banner.show{display:block;}
+.auth-banner.error{background:var(--danger-soft); color:var(--danger);}
+.auth-banner.success{background:var(--success-soft); color:var(--success);}
+
+.auth-footnote{
+    margin-top:20px;
+    text-align:center;
+    font-size:0.82rem;
+    color:var(--muted);
+}
+
+@media (max-width:480px){
+    .auth-card{padding:28px 22px 24px;}
+    .auth-topbar{padding:16px;}
+}

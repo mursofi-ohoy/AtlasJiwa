@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masuk / Daftar — ATLAS JIWA</title>
+<meta name="description" content="Masuk atau daftar akun ATLAS JIWA untuk mengakses ruang edukasi dan screening psikologi kendali impuls & adiksi.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,480;0,9..144,600;1,9..144,460&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+
+<div class="auth-topbar">
+  <a class="auth-brand" href="login.html">
+    <svg width="30" height="30" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="7" fill="var(--accent)"/>
+      <path d="M8 14C8 14 12 6 20 6C28 6 32 14 32 14" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+      <path d="M8 26C8 26 12 34 20 34C28 34 32 26 32 26" stroke="var(--teal)" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+    <span class="auth-brand-name">ATLAS JIWA</span>
+  </a>
+  <div class="auth-topbar-controls">
+    <div class="pill-toggle" role="group" aria-label="Bahasa">
+      <button id="lang-id" class="active" data-lang="id">ID</button>
+      <button id="lang-en" data-lang="en">EN</button>
+    </div>
+    <button class="icon-btn" id="theme-toggle" aria-label="Ganti tema" title="Ganti tema gelap/terang">🌙</button>
+  </div>
+</div>
+
+<main class="auth-main">
+  <div class="auth-card">
+    <h1 data-en="Welcome to ATLAS JIWA">Selamat Datang di ATLAS JIWA</h1>
+    <p class="auth-subtitle" data-en="Sign in or create an account to access educational content and psychological screening.">Masuk atau buat akun untuk mengakses konten edukasi dan screening psikologi.</p>
+
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" id="tab-login" data-en="Login" role="tab" aria-selected="true">Masuk</button>
+      <button class="auth-tab" id="tab-register" data-en="Register" role="tab" aria-selected="false">Daftar</button>
+    </div>
+
+    <div id="authBanner" class="auth-banner" role="alert"></div>
+
+    <!-- ============ FORM LOGIN ============ -->
+    <form id="loginForm" class="auth-form active" novalidate>
+      <div class="field">
+        <label for="loginIdentifier" data-en="Email or Username">Email atau Username</label>
+        <input type="text" id="loginIdentifier" name="identifier" autocomplete="username" required>
+        <div class="field-error" id="err-loginIdentifier"></div>
+      </div>
+
+      <div class="field">
+        <label for="loginPassword" data-en="Password">Password</label>
+        <div class="password-field">
+          <input type="password" id="loginPassword" name="password" autocomplete="current-password" required>
+          <button type="button" class="password-toggle" data-target="loginPassword" data-en="Show">Tampilkan</button>
+        </div>
+        <div class="field-error" id="err-loginPassword"></div>
+      </div>
+
+      <button type="submit" class="auth-submit" id="loginSubmitBtn" data-en="Login">Masuk</button>
+    </form>
+
+    <!-- ============ FORM REGISTER ============ -->
+    <form id="registerForm" class="auth-form" novalidate>
+      <div class="field">
+        <label for="regFullName" data-en="Full Name">Nama Lengkap</label>
+        <input type="text" id="regFullName" name="full_name" autocomplete="name" required>
+        <div class="field-error" id="err-regFullName"></div>
+      </div>
+
+      <div class="field">
+        <label for="regEmail" data-en="Email">Email</label>
+        <input type="email" id="regEmail" name="email" autocomplete="email" required>
+        <div class="field-error" id="err-regEmail"></div>
+      </div>
+
+      <div class="field">
+        <label for="regUsername" data-en="Username">Username</label>
+        <input type="text" id="regUsername" name="username" autocomplete="username" required>
+        <div class="field-error" id="err-regUsername"></div>
+      </div>
+
+      <div class="field">
+        <label for="regPassword" data-en="Password">Password</label>
+        <div class="password-field">
+          <input type="password" id="regPassword" name="password" autocomplete="new-password" required>
+          <button type="button" class="password-toggle" data-target="regPassword" data-en="Show">Tampilkan</button>
+        </div>
+        <div class="field-error" id="err-regPassword"></div>
+      </div>
+
+      <div class="field">
+        <label for="regConfirmPassword" data-en="Confirm Password">Konfirmasi Password</label>
+        <div class="password-field">
+          <input type="password" id="regConfirmPassword" name="confirm_password" autocomplete="new-password" required>
+          <button type="button" class="password-toggle" data-target="regConfirmPassword" data-en="Show">Tampilkan</button>
+        </div>
+        <div class="field-error" id="err-regConfirmPassword"></div>
+      </div>
+
+      <button type="submit" class="auth-submit" id="registerSubmitBtn" data-en="Create Account">Buat Akun</button>
+    </form>
+
+    <p class="auth-footnote" data-en="Educational content — not a substitute for professional diagnosis or treatment.">Konten edukatif — bukan pengganti diagnosis atau pengobatan profesional.</p>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+</body>
+</html>
