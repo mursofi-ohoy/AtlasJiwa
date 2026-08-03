@@ -1,4 +1,5 @@
 import httpx
+from fastapi import HTTPException
 
 from app.config import QWEN_API_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT_SECONDS
 from app.prompt_builder import build_full_prompt, build_opening_prompt
@@ -9,6 +10,12 @@ from app.prompt_builder import build_full_prompt, build_opening_prompt
 # terhubung dengan nlp-engine.js), pakai ask_qwen_with_context() /
 # ask_qwen_opening() di bawah -- keduanya membangun prompt lewat
 # prompt_builder.py supaya konteks NLP tersusun konsisten.
+#
+# PERBAIKAN: _generate() sekarang menangkap error koneksi ke Ollama
+# secara eksplisit (server belum jalan / model belum di-pull / lambat
+# merespons) dan mengubahnya jadi HTTPException dengan pesan yang
+# jelas, alih-alih exception mentah httpx yang muncul sebagai 500
+# generik tanpa penjelasan di frontend.
 
 _MINIMAL_SYSTEM_PROMPT = """
 Kamu adalah Atlas Jiwa AI, asisten edukasi kesehatan mental.
@@ -26,8 +33,35 @@ async def _generate(full_prompt: str) -> str:
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT_SECONDS) as client:
-        response = await client.post(QWEN_API_URL, json=payload)
+    try:
+        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT_SECONDS) as client:
+            response = await client.post(QWEN_API_URL, json=payload)
+    except httpx.ConnectError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Tidak dapat terhubung ke Ollama di {QWEN_API_URL}. "
+                "Pastikan 'ollama serve' sedang berjalan di background."
+            ),
+        ) from exc
+    except httpx.TimeoutException as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Ollama tidak merespons dalam {OLLAMA_TIMEOUT_SECONDS:.0f} detik "
+                f"(model: {OLLAMA_MODEL}). Model besar bisa lambat di percobaan "
+                "pertama -- coba lagi, atau naikkan OLLAMA_TIMEOUT_SECONDS di .env."
+            ),
+        ) from exc
+
+    if response.status_code == 404:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Model '{OLLAMA_MODEL}' belum tersedia di Ollama. "
+                f"Jalankan: ollama pull {OLLAMA_MODEL}"
+            ),
+        )
 
     response.raise_for_status()
     return response.json()["response"]

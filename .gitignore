@@ -16,4 +16,7 @@ __pycache__/
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.db.wrangler/
+backend/app/main_backup_before_qwen_fix.py
+.wrangler/
+backend/app/main_backup_before_qwen_fix.py

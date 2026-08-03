@@ -20,9 +20,19 @@ Alur integrasi JS NLP -> FastAPI -> Qwen (Ollama):
    prompt_builder.py, memanggil Qwen, lalu menyimpan pesan user +
    balasan asisten ke agent_messages.
 
-Endpoint ini diakses BUKAN langsung dari browser, melainkan lewat
-proxy Node (server/routes/agent.routes.js) yang menyisipkan header
-Authorization: Bearer <JWT> dari cookie sesi -- lihat app/auth.py.
+Endpoint ini diakses lewat proxy Cloudflare Worker
+(src/index.js -> handleAgentProxy), yang menyisipkan header
+Authorization: Bearer <JWT> dari cookie sesi Worker -- lihat
+app/auth.py. Browser tidak pernah bicara langsung ke FastAPI ini.
+
+CATATAN AGENT MEMORY: semua fungsi di app/database.py sekarang gagal
+dengan aman kalau PostgreSQL/CockroachDB tidak tersedia (lihat
+DB_AVAILABLE di app/database.py) -- endpoint di bawah TIDAK PERLU lagi
+membungkus create_agent_session()/dst dengan try/except untuk
+mencegah 500, itu sudah ditangani di lapisan database.py. Yang masih
+perlu ditangani di sini hanyalah kasus "session_id dikirim klien tapi
+DB sedang mati": jangan balas 404 seolah sesi itu tidak pernah ada,
+cukup lanjut secara stateless (tanpa histori/konteks tersimpan).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,19 +54,18 @@ async def init_session(
     context_dict = payload.context.model_dump()
     risk = risk_engine.assess_session_risk(context_dict)
 
-    try:
-        session_id = await db.create_agent_session(
-            user_id=user.id,
-            screening_type=payload.screening_type,
-            context=context_dict,
-        )
-    except Exception as exc:  # pragma: no cover - kegagalan infra
-        raise HTTPException(status_code=500, detail=f"Gagal membuat sesi konsultasi: {exc}")
+    session_id = await db.create_agent_session(
+        user_id=user.id,
+        screening_type=payload.screening_type,
+        context=context_dict,
+    )
 
     opening_message = await ask_qwen_opening(context_dict, is_crisis=risk["is_crisis"])
 
     # Kegagalan menyimpan histori TIDAK menggagalkan respons ke user --
-    # yang penting user tetap dapat balasan Qwen.
+    # yang penting user tetap dapat balasan Qwen. (insert_agent_message
+    # sendiri sudah no-op kalau DB mati, try/except ini jaga-jaga untuk
+    # kegagalan lain yang tak terduga.)
     try:
         await db.insert_agent_message(
             session_id=session_id,
@@ -96,28 +105,24 @@ async def consult(
     session_id = payload.session_id
 
     if session_id:
-        try:
+        if db.DB_AVAILABLE:
             session_row = await db.get_agent_session(session_id, user.id)
-        except Exception as exc:  # pragma: no cover
-            raise HTTPException(status_code=500, detail=f"Gagal mengambil sesi: {exc}")
-
-        if not session_row:
-            raise HTTPException(status_code=404, detail="Sesi konsultasi tidak ditemukan.")
-
-        session_context = session_row.get("overall_context")
-        try:
+            if not session_row:
+                raise HTTPException(status_code=404, detail="Sesi konsultasi tidak ditemukan.")
+            session_context = session_row.get("overall_context")
             history = await db.get_recent_messages(session_id, limit=8)
-        except Exception:  # pragma: no cover
+        else:
+            # DB sedang tidak tersedia -- jangan anggap sesi ini tidak
+            # ada (404), cukup lanjutkan tanpa histori/konteks
+            # tersimpan supaya chat tetap jalan (stateless fallback).
+            session_context = None
             history = []
     else:
         # Percakapan tanpa sesi screening sebelumnya (stateless
         # fallback) -- tetap dilayani, hanya tanpa konteks screening.
-        try:
-            session_id = await db.create_agent_session(
-                user_id=user.id, screening_type=None, context={}
-            )
-        except Exception as exc:  # pragma: no cover
-            raise HTTPException(status_code=500, detail=f"Gagal membuat sesi konsultasi: {exc}")
+        session_id = await db.create_agent_session(
+            user_id=user.id, screening_type=None, context={}
+        )
 
     reply = await ask_qwen_with_context(
         message=payload.message,

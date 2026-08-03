@@ -23,4 +23,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "atlasjiwa-db"
-database_id = "GANTI_DENGAN_DATABASE_ID_HASIL_WRANGLER_D1_CREATE"
+database_id = "b6077178-97f9-4adc-b7ca-b685cc0ff495"
