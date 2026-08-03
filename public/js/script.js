@@ -1001,14 +1001,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         { id: 'Saya merasa bersalah setelah top up, tetapi mengulanginya.', en: 'I feel guilty after topping up, but repeat it.' },
                         { id: 'Harga diri saya terkait dengan item langka dalam game.', en: 'My self-worth is tied to rare items in the game.' },
                     ],
-                    qualitative: {
-    id: 'Perkirakan pengeluaran bulanan Anda yang berkaitan dengan aktivitas bermain game.',
-    en: 'Estimate your monthly spending related to gaming activity.',
-    hint: {
-        id: 'Masukkan perkiraan nominal dalam Rupiah (Rp) atau Dollar AS (USD). Contoh: "Rp500.000", "Rp100.000", atau "US$10". Termasuk top up, pembelian item, skin, battle pass, gacha, langganan, atau transaksi dalam game. Jika tidak ada pengeluaran, tulis "Rp0" atau "US$0".',
-        en: 'Enter your estimated monthly spending in Indonesian Rupiah (IDR) or US Dollars (USD). Examples: "Rp500,000", "Rp100,000", or "US$10". Include top-ups, item purchases, skins, battle passes, gacha, subscriptions, or in-game transactions. If there is no spending, write "Rp0" or "US$0".'
-    }
-},
+                                        qualitative: {
+                        id: 'Perkirakan pengeluaran bulanan Anda yang berkaitan dengan aktivitas bermain game.',
+                        en: 'Estimate your monthly spending related to gaming activity.',
+                        hint: {
+                            id: 'Masukkan perkiraan nominal dalam Rupiah (Rp) atau Dollar AS (USD). Contoh: "Rp500.000", "Rp100.000", atau "US$10". Termasuk top up, pembelian item, skin, battle pass, gacha, langganan, atau transaksi dalam game. Jika tidak ada pengeluaran, tulis "Rp0" atau "US$0".',
+                            en: 'Enter your estimated monthly spending in Indonesian Rupiah (IDR) or US Dollars (USD). Examples: "Rp500,000", "Rp100,000", or "US$10". Include top-ups, item purchases, skins, battle passes, gacha, subscriptions, or in-game transactions. If there is no spending, write "Rp0" or "US$0".'
+                        }
+                    },
+                },
                 {
                     id: 'J',
                     title: { id: 'Kecenderungan Mengulang Perilaku', en: 'Tendency to Repeat Behavior' },
