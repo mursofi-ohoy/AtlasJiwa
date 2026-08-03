@@ -73,7 +73,7 @@ function analyzeBehavioral(text) {
     const axesWithEvidence = qualResult.evidence.length;
 
     const confidence = Math.max(0, Math.min(1,
-        (qualResult.meta.reliability / 100) * 0.6 +
+        ((qualResult.meta.reliability || 0) / 100) * 0.6 +
         Math.min(1, axesWithEvidence / 5) * 0.4
     ));
 

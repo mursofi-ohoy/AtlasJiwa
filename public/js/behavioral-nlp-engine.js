@@ -1564,3 +1564,380 @@ function analyzeFull(text) {
         global.AtlasBehavioralAdvanced.analyzeFull = analyzeFull;
     }
 })(window);
+
+/* =========================================================
+   NLP COVERAGE PATCH v2 — REVISI CODE REVIEW
+   Changelog v1 -> v2:
+   [R1] Semua identifier diprefiks cov*/COV_ (tidak mungkin
+        menimpa fungsi engine: extractFinancialImpact, dll.)
+   [R2] COV_MONEY_REGEX unik; blok ini IIFE mandiri dan dipasang
+        SETELAH })(window); engine -> mustahil SyntaxError
+        "already declared".
+   [R4] Decorator covSanitizeNaN: confidence/reliability NaN
+        disangkal jadi 0 (melindungi analyzeBehavioral/analyzeFull).
+   [R6] Parser uang memakai 3 lapis filter false-positive:
+        token self-qualifying (rp…/…rb/…jt/…k/rupiah), ATAU
+        konteks finansial (uang/duit/top up/…), ATAU jawaban
+        sangat pendek (<=4 kata).
+   [R7] Wording non-diagnostik ("pola/indikator", bukan label).
+   Tidak mengubah: HTML, script.js, nlp-engine.js,
+   keyword-dictionary.js, summary-engine.js, auth, API, Worker.
+========================================================= */
+(function (global) {
+    'use strict';
+
+    if (global.AtlasNLPEngine && global.AtlasNLPEngine.__coveragePatched) {
+        return; // idempoten: v2 sudah aktif, jangan pasang dua kali
+    }
+
+    const COV_SHALLOW_THEME_IDS = [
+        'Refleksi Minimal', 'Minimal Reflection',
+        'Gambaran Umum yang Seimbang', 'Balanced General Picture'
+    ];
+
+    /* ---------- util lokal ---------- */
+    function covSplitSentences(text) {
+        return String(text || '')
+            .split(/(?<=[.!?\n])\s+|\n+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+
+    function covFormatRupiah(n) {
+        try { return 'Rp' + Number(n).toLocaleString('id-ID'); }
+        catch (e) { return 'Rp' + n; }
+    }
+
+    /* ---------- [R6] parser uang dengan filter konteks ---------- */
+    const COV_MONEY_REGEX = /rp\.?\s?\d[\d.,]*\s?(?:rb|ribu|jt|juta|k)?|\b\d+(?:[.,]\d+)?\s?(?:rb|ribu|jt|juta|k|rupiah)\b/gi;
+
+    const COV_FINANCIAL_CONTEXT = [
+        'uang', 'duit', 'rupiah', 'top up', 'topup', 'belanja', 'langganan',
+        'biaya', 'pengeluaran', 'kuota', 'paket data', 'paylater', 'pay later',
+        'pinjol', 'tabungan', 'nabung', 'menabung', 'gaji', 'bayar', 'cicilan',
+        'utang', 'hutang', 'harga', 'sebulan', 'bulanan', 'per bulan',
+        'habis buat', 'habis untuk'
+    ];
+
+    function covTokenSelfQualifying(token) {
+        const t = String(token || '').trim().toLowerCase();
+        return /^rp/.test(t) || /rupiah$/.test(t) || /(rb|jt|k)$/.test(t);
+    }
+
+    function covParseMoneyToken(token) {
+        let s = String(token || '').toLowerCase().trim();
+        s = s.replace(/^rp\.?\s?/, '');
+        let multiplier = 1;
+        if (/(jt|juta)/.test(s)) { multiplier = 1000000; s = s.replace(/(jt|juta)/g, '').trim(); }
+        else if (/(rb|ribu)/.test(s)) { multiplier = 1000; s = s.replace(/(rb|ribu)/g, '').trim(); }
+        else if (/\bk\b/.test(s)) { multiplier = 1000; s = s.replace(/\bk\b/g, '').trim(); }
+        s = s.replace(/rupiah/g, '').trim();
+        const cleaned = multiplier > 1
+            ? s.replace(/\./g, '').replace(',', '.')
+            : s.replace(/[.,]/g, '');
+        const value = parseFloat(cleaned);
+        if (isNaN(value) || value <= 0) return null;
+        return Math.round(value * multiplier);
+    }
+
+    function covParseMoney(text) {
+        const safeText = String(text || '');
+        const lower = safeText.toLowerCase();
+        const wordCount = safeText.trim() ? safeText.trim().split(/\s+/).length : 0;
+        const contextPresent = COV_FINANCIAL_CONTEXT.some((w) => lower.includes(w));
+        const raw = safeText.match(COV_MONEY_REGEX) || [];
+        const out = [];
+        raw.forEach((token) => {
+            // [R6] token "juta/ribu" polos hanya diterima bila ada konteks
+            // finansial ATAU jawaban memang sangat pendek (estimasi langsung).
+            if (!covTokenSelfQualifying(token) && !contextPresent && wordCount > 4) return;
+            const value = covParseMoneyToken(token);
+            if (value !== null && value < 1000000000) out.push({ raw: token.trim(), value: value });
+        });
+        return out;
+    }
+
+    function covBand(amount) {
+        if (amount < 100000) return 'minimal';
+        if (amount < 300000) return 'moderate';
+        if (amount < 1000000) return 'high';
+        return 'very_high';
+    }
+
+    /* ---------- detektor penurunan fungsi (kerja/akademik) ---------- */
+    const COV_FUNCTION_DOMAIN = [
+        'kinerja', 'pekerjaan', 'kerjaan', 'produktivitas', 'performa',
+        'nilai', 'ipk', 'prestasi', 'tugas', 'skripsi', 'konsentrasi',
+        'deep work', 'karier', 'karir'
+    ];
+    const COV_FUNCTION_DECLINE = [
+        'memburuk', 'menurun', 'turun', 'hancur', 'anjlok', 'terganggu',
+        'berantakan', 'rusak', 'menjeblok', 'merosot', 'kacau',
+        'makin buruk', 'semakin buruk'
+    ];
+    const COV_SEVERE_DECLINE = ['hancur', 'anjlok', 'kacau', 'menjeblok'];
+
+    function covDetectFunctionalDecline(text) {
+        const hits = [];
+        covSplitSentences(text).forEach((s) => {
+            const lower = s.toLowerCase();
+            const domains = COV_FUNCTION_DOMAIN.filter((t) => lower.includes(t));
+            const declines = COV_FUNCTION_DECLINE.filter((t) => lower.includes(t));
+            if (domains.length && declines.length) hits.push({ sentence: s, domains: domains, declines: declines });
+        });
+        return hits;
+    }
+
+    /* ---------- detektor angka + "kali" ---------- */
+    function covDetectCountKali(text) {
+        const m = String(text || '').toLowerCase().match(/(\d[\d.,]*)\s*kali/);
+        if (!m) return null;
+        const n = parseFloat(m[1].replace(/[.,]/g, ''));
+        if (isNaN(n) || n <= 0) return null;
+        return { count: n, hyperbolic: n >= 100 };
+    }
+
+    /* ---------- detektor durasi ---------- */
+    function covDetectDuration(text) {
+        const re = /(\d+(?:[.,]\d+)?)\s*(jam|menit)/gi;
+        const found = [];
+        let m;
+        while ((m = re.exec(String(text || ''))) !== null) {
+            const val = parseFloat(m[1].replace(',', '.'));
+            found.push({ raw: m[0], hours: m[2].toLowerCase() === 'jam' ? val : val / 60 });
+        }
+        if (!found.length) return null;
+        return { maxHours: Math.max.apply(null, found.map((f) => f.hours)), mentions: found };
+    }
+
+    /* ---------- pembangun sinyal (wording non-diagnostik, [R7]) ---------- */
+    function covBuildFinancialSignal(text, amount, band) {
+        const clause = {
+            minimal: { id: 'Pengeluaran terkait perilaku ini tergolong minimal.', en: 'Spending related to this behavior is minimal.' },
+            moderate: { id: 'Pengeluaran terkait perilaku ini sudah tergolong sedang dan layak dicatat dalam anggaran Anda.', en: 'Spending related to this behavior is moderate and worth tracking in your budget.' },
+            high: { id: 'Pengeluaran terkait perilaku ini tergolong tinggi dan dapat mulai memengaruhi stabilitas keuangan.', en: 'Spending related to this behavior is high and may start affecting financial stability.' },
+            very_high: { id: 'Terdapat pola pengeluaran yang sangat tinggi untuk sebuah perilaku digital — indikator risiko finansial yang layak diprioritaskan.', en: 'There is a very high spending pattern for a digital behavior — a financial risk indicator worth prioritizing.' }
+        }[band];
+        return {
+            axisKey: 'financialImpact',
+            axisLabel: { id: 'Dampak Finansial', en: 'Financial Impact' },
+            score: { minimal: 1, moderate: 2, high: 3, very_high: 4 }[band],
+            riskFloor: { minimal: 25, moderate: 40, high: 55, very_high: 70 }[band],
+            theme: { id: 'Dampak Finansial yang Menonjol', en: 'Prominent Financial Impact' },
+            interpretation: {
+                id: 'Anda menyebutkan nominal sekitar ' + covFormatRupiah(amount) + ' per bulan. ' + clause.id,
+                en: 'You mentioned roughly ' + covFormatRupiah(amount) + ' per month. ' + clause.en
+            },
+            tags: band === 'very_high'
+                ? [{ id: 'Dampak Finansial', en: 'Financial Impact' }, { id: 'Pengeluaran Sangat Tinggi', en: 'Very High Spending' }]
+                : [{ id: 'Dampak Finansial', en: 'Financial Impact' }],
+            sentence: String(text || '').trim(),
+            term: covFormatRupiah(amount)
+        };
+    }
+
+    function covBuildFunctionalSignal(text, hits) {
+        const domainSet = {};
+        hits.forEach((h) => h.domains.forEach((d) => { domainSet[d] = true; }));
+        const domainCount = Object.keys(domainSet).length;
+        const severe = hits.some((h) => h.declines.some((d) => COV_SEVERE_DECLINE.indexOf(d) !== -1));
+        return {
+            axisKey: 'functionalImpairment',
+            axisLabel: { id: 'Gangguan Fungsi (Kerja/Akademik)', en: 'Functional Impairment (Work/Academic)' },
+            score: Math.min(4, 2 + (domainCount > 1 ? 1 : 0) + (severe ? 1 : 0)),
+            riskFloor: severe ? 60 : 45,
+            theme: { id: 'Dampak Nyata pada Kinerja & Akademik', en: 'Clear Impact on Performance & Academics' },
+            interpretation: {
+                id: 'Jawaban Anda menyebutkan penurunan nyata pada fungsi sehari-hari (pekerjaan/akademik) — bukti dampak konkret, bukan sekadar perasaan, dan layak menjadi prioritas perubahan.',
+                en: 'Your answer mentions a real decline in everyday functioning (work/academics) — concrete evidence of impact, not just a feeling, and worth prioritizing for change.'
+            },
+            tags: [{ id: 'Gangguan Fungsi', en: 'Functional Impairment' }],
+            sentence: hits[0].sentence,
+            term: hits[0].declines[0]
+        };
+    }
+
+    function covBuildCountSignal(text, info) {
+        if (info.hyperbolic) {
+            return {
+                axisKey: 'changeAttempts',
+                axisLabel: { id: 'Frekuensi Upaya Berubah', en: 'Change-Attempt Frequency' },
+                score: 3,
+                riskFloor: 55,
+                theme: { id: 'Upaya Berubah yang Berulang', en: 'Repeated Change Attempts' },
+                interpretation: {
+                    id: 'Angka "' + info.count + ' kali" terbaca sebagai ungkapan banyaknya upaya berubah sampai terasa tak terhitung — ini menandakan dua hal sekaligus: motivasi berubah yang kuat, dan siklus kambuh yang berulang karena perubahan belum pernah bertahan lama.',
+                    en: 'The figure "' + info.count + ' times" reads as so many change attempts they feel uncountable — signaling both strong motivation to change and a recurring relapse cycle because change has not yet lasted.'
+                },
+                tags: [{ id: 'Pola Relaps', en: 'Relapse Pattern' }, { id: 'Motivasi Berubah', en: 'Motivation to Change' }],
+                sentence: String(text || '').trim(),
+                term: info.count + ' kali'
+            };
+        }
+        return {
+            axisKey: 'chronicity',
+            axisLabel: { id: 'Kronisitas', en: 'Chronicity' },
+            score: Math.min(2, info.count >= 3 ? 2 : 1),
+            riskFloor: 30,
+            theme: { id: 'Frekuensi Perilaku yang Tinggi', en: 'High Behavioral Frequency' },
+            interpretation: {
+                id: 'Anda menyebut pengulangan sekitar ' + info.count + ' kali — frekuensi sebesar ini menandakan perilaku yang sudah berjalan otomatis dalam rutinitas Anda.',
+                en: 'You mentioned roughly ' + info.count + ' repetitions — a frequency this high indicates the behavior has become automatic in your routine.'
+            },
+            tags: [{ id: 'Pola Kronis', en: 'Chronic Pattern' }],
+            sentence: String(text || '').trim(),
+            term: info.count + ' kali'
+        };
+    }
+
+    function covBuildDurationSignal(text, dur) {
+        const h = Math.round(dur.maxHours * 10) / 10;
+        return {
+            axisKey: 'excessiveDuration',
+            axisLabel: { id: 'Durasi Berlebihan', en: 'Excessive Duration' },
+            score: h >= 6 ? 3 : 2,
+            riskFloor: h >= 6 ? 60 : 45,
+            theme: { id: 'Durasi Penggunaan yang Tinggi', en: 'High Usage Duration' },
+            interpretation: {
+                id: 'Durasi yang Anda sebutkan (±' + h + ' jam) melebihi ambang penggunaan rekreasi umum — durasi sepanjang ini cenderung menggeser waktu tidur, kerja, dan interaksi nyata.',
+                en: 'The duration you mentioned (~' + h + ' hours) exceeds typical recreational use — durations this long tend to displace sleep, work, and real-life interaction.'
+            },
+            tags: [{ id: 'Durasi Berlebihan', en: 'Excessive Duration' }],
+            sentence: String(text || '').trim(),
+            term: dur.mentions[0].raw
+        };
+    }
+
+    /* ---------- [R5] registrasi label & polaritas axis baru ---------- */
+    function covRegisterNewAxes() {
+        if (global.AtlasNLPEngine && global.AtlasNLPEngine.AXIS_LABELS) {
+            const L = global.AtlasNLPEngine.AXIS_LABELS;
+            if (!L.financialImpact) L.financialImpact = { id: 'Dampak Finansial', en: 'Financial Impact' };
+            if (!L.functionalImpairment) L.functionalImpairment = { id: 'Gangguan Fungsi (Kerja/Akademik)', en: 'Functional Impairment (Work/Academic)' };
+            if (!L.changeAttempts) L.changeAttempts = { id: 'Frekuensi Upaya Berubah', en: 'Change-Attempt Frequency' };
+            if (!L.excessiveDuration) L.excessiveDuration = { id: 'Durasi Berlebihan', en: 'Excessive Duration' };
+        }
+        if (global.AtlasKeywordDictionary && global.AtlasKeywordDictionary.axisRiskPolarity) {
+            const p = global.AtlasKeywordDictionary.axisRiskPolarity;
+            if (p.financialImpact === undefined) p.financialImpact = 1.0;
+            if (p.functionalImpairment === undefined) p.functionalImpairment = 1.2;
+            if (p.changeAttempts === undefined) p.changeAttempts = 0.7;
+            if (p.excessiveDuration === undefined) p.excessiveDuration = 1.0;
+        }
+    }
+    covRegisterNewAxes();
+
+    /* ---------- util enricher ---------- */
+    function covEnsureAxes(result) {
+        if (result.axes) return Object.assign({}, result.axes);
+        const axes = {};
+        const dict = global.AtlasKeywordDictionary;
+        if (dict && dict.axes) {
+            Object.keys(dict.axes).forEach((k) => { axes[k] = { score: 0, density: 0 }; });
+        }
+        return axes;
+    }
+
+    function covEnrichAnalysis(text, result) {
+        if (!result) return result;
+        const shallow = COV_SHALLOW_THEME_IDS.indexOf(result.theme && result.theme.id) !== -1;
+        const signals = [];
+
+        const amounts = covParseMoney(text);
+        const maxAmount = amounts.length ? Math.max.apply(null, amounts.map((a) => a.value)) : null;
+        if (maxAmount !== null && maxAmount > 0) {
+            signals.push(covBuildFinancialSignal(text, maxAmount, covBand(maxAmount)));
+        }
+
+        const declineHits = covDetectFunctionalDecline(text);
+        if (declineHits.length) signals.push(covBuildFunctionalSignal(text, declineHits));
+
+        const countInfo = covDetectCountKali(text);
+        if (countInfo) signals.push(covBuildCountSignal(text, countInfo));
+
+        const dur = covDetectDuration(text);
+        if (dur && dur.maxHours >= 3) signals.push(covBuildDurationSignal(text, dur));
+
+        if (!signals.length) return result;
+        signals.sort((a, b) => b.score - a.score);
+        const primary = signals[0];
+
+        const enriched = Object.assign({}, result);
+        enriched.tags = (result.tags || []).slice();
+        enriched.evidence = (result.evidence || []).slice();
+        enriched.axes = covEnsureAxes(result);
+
+        if (shallow) {
+            enriched.theme = primary.theme;
+            enriched.interpretation = primary.interpretation;
+        } else {
+            enriched.interpretation = {
+                id: (result.interpretation.id || '') + ' ' + primary.interpretation.id,
+                en: (result.interpretation.en || '') + ' ' + primary.interpretation.en
+            };
+        }
+
+        signals.forEach((sig) => {
+            sig.tags.forEach((t) => {
+                if (!enriched.tags.some((x) => x.id === t.id)) enriched.tags.push(t);
+            });
+            enriched.evidence.push({
+                axis: sig.axisKey,
+                axisLabel: sig.axisLabel,
+                term: sig.term,
+                sentence: sig.sentence,
+                allQuotes: [{ sentence: sig.sentence, term: sig.term }]
+            });
+            enriched.axes[sig.axisKey] = { score: sig.score, density: 0 };
+        });
+
+        const floor = Math.max.apply(null, signals.map((s) => s.riskFloor));
+        const origPercent = (result.meta && result.meta.qualitativeRisk && result.meta.qualitativeRisk.percent) || 0;
+        enriched.meta = Object.assign({}, result.meta, {
+            qualitativeRisk: { raw: Math.max(origPercent, floor), percent: Math.max(origPercent, floor) }
+        });
+
+        return enriched;
+    }
+
+    /* ---------- [R4] sanitizer NaN untuk layer behavioral ---------- */
+    function covSanitizeNaN(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        if (typeof obj.confidence === 'number' && isNaN(obj.confidence)) obj.confidence = 0;
+        if (typeof obj.reliability_score === 'number' && isNaN(obj.reliability_score)) obj.reliability_score = 0;
+        if (obj.reliability && typeof obj.reliability.score === 'number' && isNaN(obj.reliability.score)) {
+            obj.reliability.score = 0;
+        }
+        return obj;
+    }
+
+    ['AtlasBehavioralNLP', 'AtlasBehavioralAdvanced'].forEach((ns) => {
+        const mod = global[ns];
+        if (!mod) return;
+        ['analyzeBehavioral', 'analyzeFull'].forEach((fn) => {
+            const flag = '__covNanPatched_' + fn;
+            if (typeof mod[fn] === 'function' && !mod[flag]) {
+                const orig = mod[fn];
+                mod[fn] = function (t) {
+                    try { return covSanitizeNaN(orig(t)); }
+                    catch (e) { return orig(t); }
+                };
+                mod[flag] = true;
+            }
+        });
+    });
+
+    /* ---------- pasang pembungkus analyzeQualitative (fail-safe) ---------- */
+    if (global.AtlasNLPEngine && typeof global.AtlasNLPEngine.analyzeQualitative === 'function') {
+        const originalAnalyze = global.AtlasNLPEngine.analyzeQualitative;
+        global.AtlasNLPEngine.analyzeQualitative = function (text) {
+            const result = originalAnalyze(text);
+            try {
+                return covEnrichAnalysis(text, result) || result;
+            } catch (e) {
+                return result; // jangan pernah merusak alur existing
+            }
+        };
+        global.AtlasNLPEngine.__coveragePatched = true;
+    }
+})(window);
