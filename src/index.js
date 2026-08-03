@@ -362,6 +362,9 @@ async function handleApi(request, env) {
         if (pathname === '/api/agent/consult' && method === 'POST') {
             return await handleAgentProxy(request, env, '/api/v1/agent/consult');
         }
+        if (pathname === '/api/analysis/preclinical' && method === 'POST') {
+            return await handleAgentProxy(request, env, '/api/v1/analysis/preclinical');
+        }
 
         return json({ error: 'Endpoint tidak ditemukan.' }, 404);
     } catch (err) {

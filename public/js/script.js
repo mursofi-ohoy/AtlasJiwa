@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 margin: 1.25rem 0;
                 text-align: center;
             }
-            .axis-radar-wrap svg { max-width: 100%; height: auto; overflow: visible; }
+            .axis-radar-wrap svg { max-width: 100%; height: auto; }
             .axis-radar-title {
                 font-size: 0.85rem;
                 font-weight: 600;
@@ -392,28 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const keys = Object.keys(axisTotals).filter((k) => k !== 'minimization' && k !== 'externalAttribution' && k !== 'internalAttribution');
         if (keys.length < 3) return '';
 
-        // size diperbesar (320 -> 460) khusus untuk menyediakan ruang label di tepi SVG.
-        // Sebelumnya label (mis. "Pola Relaps Berulang") digambar melewati batas viewBox
-        // dan SVG meng-clip apa pun di luar viewBox-nya, sehingga teks terpotong.
-        const size = 460;
+        const size = 320;
         const center = size / 2;
-        const maxRadius = center - 130;
+        const maxRadius = center - 56;
         const maxVal = Math.max(2, ...keys.map((k) => axisTotals[k] || 0));
         const angleStep = (2 * Math.PI) / keys.length;
-
-        // Pecah label panjang menjadi maksimal 2 baris (dekat spasi tengah) supaya
-        // lebar teks per baris lebih pendek dan tetap muat dalam viewBox yang diperbesar.
-        function wrapLabel(text, maxLen = 13) {
-            if (!text || text.length <= maxLen) return [text];
-            const mid = Math.floor(text.length / 2);
-            let splitIdx = -1;
-            for (let d = 0; d < text.length; d++) {
-                if (text[mid - d] === ' ') { splitIdx = mid - d; break; }
-                if (text[mid + d] === ' ') { splitIdx = mid + d; break; }
-            }
-            if (splitIdx === -1) return [text];
-            return [text.slice(0, splitIdx).trim(), text.slice(splitIdx + 1).trim()];
-        }
 
         function pointFor(i, value) {
             const angle = angleStep * i - Math.PI / 2;
@@ -436,23 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const angle = angleStep * i - Math.PI / 2;
             const x2 = center + maxRadius * Math.cos(angle);
             const y2 = center + maxRadius * Math.sin(angle);
-            const labelX = center + (maxRadius + 26) * Math.cos(angle);
-            const labelY = center + (maxRadius + 26) * Math.sin(angle);
+            const labelX = center + (maxRadius + 34) * Math.cos(angle);
+            const labelY = center + (maxRadius + 34) * Math.sin(angle);
             const anchor = Math.cos(angle) > 0.3 ? 'start' : Math.cos(angle) < -0.3 ? 'end' : 'middle';
             const label = labels[k] ? (currentLang === 'id' ? labels[k].id : labels[k].en) : k;
-            const lines = wrapLabel(label);
-            const lineHeight = 11;
-            const startDy = -((lines.length - 1) / 2) * lineHeight;
-            const tspans = lines.map((line, idx) => `<tspan x="${labelX.toFixed(1)}" dy="${idx === 0 ? startDy : lineHeight}">${escapeHtml(line)}</tspan>`).join('');
             return `
                 <line x1="${center}" y1="${center}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--border-color, #ddd)" stroke-width="1" opacity="0.6"/>
-                <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9.5" fill="var(--text-muted, #666)" text-anchor="${anchor}" dominant-baseline="middle">${tspans}</text>`;
+                <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9.5" fill="var(--text-muted, #666)" text-anchor="${anchor}" dominant-baseline="middle">${escapeHtml(label)}</text>`;
         }).join('');
 
         return `
             <div class="axis-radar-wrap">
                 <div class="axis-radar-title">◈ ${bi('Peta Profil Axis Kualitatif', 'Qualitative Axis Profile Map')}</div>
-                <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="overflow: visible;">
+                <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
                     ${gridRings}
                     ${axisLines}
                     <polygon points="${dataPath}" fill="var(--accent, #4a90e2)" fill-opacity="0.22" stroke="var(--accent, #4a90e2)" stroke-width="2"/>
