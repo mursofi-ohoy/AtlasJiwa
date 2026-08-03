@@ -767,13 +767,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         { id: 'Saya merasa ada "kebocoran keuangan" terkait scrolling.', en: 'I feel there is a "financial leak" related to scrolling.' },
                     ],
                     qualitative: {
-    id: 'Perkirakan pengeluaran bulanan Anda yang berkaitan dengan aktivitas scrolling.',
-    en: 'Estimate your monthly spending related to scrolling activity.',
-    hint: {
-        id: 'Masukkan perkiraan nominal dalam Rupiah (Rp) atau Dollar AS (USD). Contoh: "Rp500.000" atau "US$10". Jika tidak ada pengeluaran, tulis "Rp0" atau "US$0".',
-        en: 'Enter your estimated monthly spending in Indonesian Rupiah (IDR) or US Dollars (USD). Examples: "Rp500,000", "500 thousand IDR", "$10", "10 USD", or "US$10". If there is no spending, write "Rp0", "$0", or "none".'
-    }
-},
+                        id: 'Perkirakan pengeluaran bulanan Anda yang berkaitan dengan aktivitas scrolling.',
+                        en: 'Estimate your monthly spending related to scrolling activity.',
+                        hint: {
+                            id: 'Masukkan perkiraan nominal dalam Rupiah (Rp) atau Dollar AS (USD). Contoh: "Rp500.000" atau "US$10". Jika tidak ada pengeluaran, tulis "Rp0" atau "US$0".',
+                            en: 'Enter your estimated monthly spending in Indonesian Rupiah (IDR) or US Dollars (USD). Examples: "Rp500,000", "500 thousand IDR", "$10", "10 USD", or "US$10". If there is no spending, write "Rp0", "$0", or "none".'
+                        }
+                    }
+                },
+                {
                     id: 'J',
                     title: { id: 'Kecenderungan Mengulang Perilaku', en: 'Tendency to Repeat Behavior' },
                     scale: {
