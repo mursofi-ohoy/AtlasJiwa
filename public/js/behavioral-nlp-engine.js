@@ -190,7 +190,8 @@
             academic: { present: academicHits.length > 0, evidence: academicHits },
             professional: { present: professionalHits.length > 0, evidence: professionalHits },
             social: { present: socialHits.length > 0, evidence: socialHits },
-            health: { present: healthHits.length > 0, evidence: healthHits }
+            health: { present: healthHits.length > 0, evidence: healthHits },
+            financial: extractFinancialImpact(text)
         };
     }
 
@@ -319,6 +320,17 @@
             (axes.minimization.score * 0.4)
         );
 
+        // Skor dampak finansial: bukan dari axis nlp-engine.js (yang
+        // tidak punya axis keuangan), tapi dari kosakata + nominal
+        // uang yang diparsing extractFinancialImpact() di atas.
+        const financialImpact = functionalImpact.financial || { present: false, spending_band: null, debt_reliance: false, evidence: [] };
+        const FINANCIAL_BAND_POINTS = { minimal: 1, moderate: 3, high: 5, very_high: 7 };
+        const financialImpactScore = Math.max(0, Math.min(10,
+            (financialImpact.present ? 3 : 0) +
+            (FINANCIAL_BAND_POINTS[financialImpact.spending_band] || 0) +
+            (financialImpact.debt_reliance ? 3 : 0)
+        ));
+
         const evidenceFor = (axisKey, extra) => {
             const list = (evidenceMap[axisKey] || []).slice(0, 2);
             return extra ? list.concat(extra).slice(0, 3) : list;
@@ -349,6 +361,10 @@
             change_difficulty_score: {
                 value: changeDifficultyScore,
                 evidence: evidenceFor('relapsePattern', evidenceMap.minimization)
+            },
+            financial_impact_score: {
+                value: financialImpactScore,
+                evidence: financialImpact.evidence || []
             }
         };
     }
@@ -497,6 +513,134 @@ const EMOTION_AFTER_TERMS = [
     'kosong', 'hampa', 'kecewa', 'malu', 'sia-sia', 'buang waktu',
     'lelah', 'tidak produktif'
 ];
+
+/* ---------- Dampak Finansial (kosakata uang) ---------- */
+// Ditambahkan karena kuesioner punya section "Konsekuensi Finansial"
+// (pertanyaan kualitatif: "Perkirakan uang yang Anda habiskan bulanan
+// terkait scrolling") tetapi engine sebelumnya TIDAK punya kosakata
+// apa pun untuk menganalisis jawabannya — narasi yang berisi nominal
+// uang atau istilah keuangan sehari-hari sama sekali tidak terdeteksi.
+//
+// Dua lapis deteksi:
+//   1) FINANCIAL_IMPACT_PHRASES / FINANCIAL_DEBT_PHRASES — kosakata
+//      kualitatif (boros, kebocoran keuangan, nunggak, pinjol, dst).
+//   2) parseMoneyMentions() — parser nominal Rupiah dari teks bebas
+//      (mis. "Rp300.000", "300rb", "500 ribu", "1,5 juta", "1jt")
+//      supaya jawaban seperti "sekitar 500rb sebulan buat top up
+//      kuota sama langganan" ikut terukur secara kuantitatif, bukan
+//      cuma dari kata sifatnya.
+const FINANCIAL_IMPACT_PHRASES = [
+    'boros', 'kebocoran keuangan', 'bocor duit', 'bocor uang', 'jebol tabungan',
+    'tabungan jebol', 'uang habis buat', 'duit habis buat', 'susah nabung',
+    'gagal nabung', 'tidak bisa menabung', 'nggak bisa nabung', 'kehabisan uang',
+    'kehabisan saldo', 'saldo minus', 'rekening minus', 'defisit bulanan',
+    'nombok', 'nombok terus', 'gali lubang tutup lubang', 'utang buat', 'ngutang buat',
+    'kalap belanja', 'belanja gak kepakai', 'belanja nggak kepakai',
+    'nyesel abis belanja', 'boncos', 'boncos gara-gara scroll', 'jajan online terus',
+    'langganan numpuk', 'langganan menumpuk', 'subscription numpuk',
+    'lupa unsubscribe', 'auto-debet jalan terus', 'auto debet jalan terus',
+    'uang jajan habis', 'jatah bulanan habis', 'pengeluaran membengkak',
+    'pengeluaran tidak terkontrol', 'checkout impulsif', 'checkout tanpa pikir',
+    'beli tanpa pikir panjang', 'impulsive buying', 'overspending',
+    "money i can't afford to lose", 'spending more than i should',
+    "money i don't have", 'racking up debt'
+];
+
+const FINANCIAL_DEBT_PHRASES = [
+    'pinjol', 'pinjaman online', 'paylater', 'pay later', 'kartu kredit',
+    'kredit macet', 'nunggak', 'nunggak cicilan', 'cicilan menumpuk',
+    'gali lubang tutup lubang', 'ngutang', 'utang', 'limit kartu kredit habis',
+    'credit card debt', 'buy now pay later', 'in debt'
+];
+
+// Menangkap nominal Rupiah dalam berbagai gaya penulisan kolokial:
+// "Rp300.000", "Rp 300rb", "300rb", "300 ribu", "1,5 juta", "1jt", "500k".
+const MONEY_REGEX = /rp\.?\s?\d[\d.,]*\s?(?:rb|ribu|jt|juta|k)?|\b\d+(?:[.,]\d+)?\s?(?:rb|ribu|jt|juta|k)\b/gi;
+
+// Frasa yang secara eksplisit menyatakan tidak ada pengeluaran terkait
+// scrolling — dicatat terpisah supaya "Rp0" tidak salah dianggap tidak
+// menjawab, dan supaya panel tidak salah menandai risiko finansial
+// padahal pengguna melaporkan tidak ada biaya sama sekali.
+const ZERO_SPEND_REGEX = /\b(gak|tidak|nggak)\s+(ada|pernah)\b[^.?!\n]{0,25}\b(uang|duit|biaya|pengeluaran|keluar\s?duit)\b|tidak ada pengeluaran|gak ada pengeluaran|nggak keluar (uang|duit)|\b0\s?rupiah\b/i;
+
+function parseMoneyToken(token) {
+    let s = String(token || '').toLowerCase().trim();
+    s = s.replace(/^rp\.?\s?/, '');
+
+    let multiplier = 1;
+    if (/(jt|juta)\b/.test(s)) {
+        multiplier = 1000000;
+        s = s.replace(/(jt|juta)\b/, '').trim();
+    } else if (/(rb|ribu)\b/.test(s)) {
+        multiplier = 1000;
+        s = s.replace(/(rb|ribu)\b/, '').trim();
+    } else if (/\bk\b/.test(s)) {
+        multiplier = 1000;
+        s = s.replace(/\bk\b/, '').trim();
+    }
+
+    let cleaned;
+    if (multiplier > 1) {
+        // Untuk "1,5 juta" / "300 rb": titik dibuang (pemisah ribuan
+        // yang jarang dipakai di sini), koma dianggap desimal.
+        cleaned = s.replace(/\./g, '').replace(',', '.');
+    } else {
+        // Nominal rupiah penuh seperti "300.000" atau "300,000":
+        // titik/koma dianggap pemisah ribuan, bukan desimal.
+        cleaned = s.replace(/[.,]/g, '');
+    }
+
+    const value = parseFloat(cleaned);
+    if (isNaN(value) || value <= 0) return null;
+    return Math.round(value * multiplier);
+}
+
+function parseMoneyMentions(text) {
+    const safeText = String(text || '');
+    const raw = safeText.match(MONEY_REGEX) || [];
+    const amounts = [];
+    raw.forEach((token) => {
+        const value = parseMoneyToken(token);
+        // Batas kewajaran (di bawah Rp1 miliar) supaya angka yang
+        // sebetulnya bukan nominal uang (mis. tahun, no. HP) tidak
+        // ikut kebaca sebagai pengeluaran finansial.
+        if (value !== null && value < 1000000000) {
+            amounts.push({ raw: token.trim(), value: value });
+        }
+    });
+    return amounts;
+}
+
+function bandForAmount(amount) {
+    if (amount === null || amount === undefined) return null;
+    if (amount < 100000) return 'minimal';
+    if (amount < 300000) return 'moderate';
+    if (amount < 1000000) return 'high';
+    return 'very_high';
+}
+
+/* Menggabungkan kosakata kualitatif + nominal uang jadi satu hasil
+   evidence-based, dengan bentuk keluaran ({present, evidence, ...})
+   yang konsisten dengan domain lain di extractFunctionalImpact(). */
+function extractFinancialImpact(text) {
+    const safeText = String(text || '');
+    const phraseEvidence = findPhraseEvidence(safeText, FINANCIAL_IMPACT_PHRASES);
+    const debtEvidence = findPhraseEvidence(safeText, FINANCIAL_DEBT_PHRASES);
+    const amounts = parseMoneyMentions(safeText);
+    const maxAmount = amounts.length ? Math.max.apply(null, amounts.map((a) => a.value)) : null;
+    const explicitZeroSpend = maxAmount === null && ZERO_SPEND_REGEX.test(safeText);
+
+    return {
+        present: phraseEvidence.present || debtEvidence.present || (maxAmount !== null && maxAmount > 0),
+        evidence: [].concat(phraseEvidence.evidence, debtEvidence.evidence).slice(0, 3),
+        amount_mentions: amounts,
+        estimated_monthly_amount: maxAmount,
+        spending_band: bandForAmount(maxAmount),
+        debt_reliance: debtEvidence.present,
+        debt_evidence: debtEvidence.evidence,
+        explicit_zero_spend_reported: explicitZeroSpend
+    };
+}
 
 const ARCHETYPE_DICT = {
     doomscrolling: [
@@ -684,6 +828,7 @@ function extractBehavioralFeatures(text) {
     const presentBias = findPhraseEvidence(safeText, PRESENT_BIAS_PHRASES);
     const ambivalence = findPhraseEvidence(safeText, AMBIVALENCE_MARKERS);
     const intensity = computeIntensity(safeText);
+    const financialImpact = extractFinancialImpact(safeText);
 
     return {
         loss_of_control: lossOfControl,
@@ -696,6 +841,7 @@ function extractBehavioralFeatures(text) {
         present_bias: presentBias,
         ambivalence: ambivalence,
         intensity: intensity,
+        financial_impact: financialImpact,
         emotional_regulation: {
             trigger_present: emotionTriggers.present,
             reward_present: emotionRewards.present,
@@ -819,6 +965,19 @@ function computeSeverity(features, temporal) {
         addEvidence(features.ambivalence.evidence);
     }
 
+    if (features.financial_impact && features.financial_impact.present) {
+        const band = features.financial_impact.spending_band;
+        score += (band === 'high' || band === 'very_high') ? 2 : 1;
+        reasons.push('financial_impact_present');
+        addEvidence(features.financial_impact.evidence);
+    }
+
+    if (features.financial_impact && features.financial_impact.debt_reliance) {
+        score += 2;
+        reasons.push('financial_debt_reliance');
+        addEvidence(features.financial_impact.debt_evidence);
+    }
+
     // Pengali intensitas: hanya diterapkan pada skor yang SUDAH
     // punya evidence konkret (score > 0) — modifier seperti "banget"/
     // "parah" tidak pernah jadi sumber skor berdiri sendiri, hanya
@@ -918,6 +1077,7 @@ function buildRiskDimensions(features, severity) {
         relationship: features.relationship_impact.present,
         relapse: features.failed_attempts.present,
         emotional: features.emotional_regulation.negative_after,
+        financial: !!(features.financial_impact && features.financial_impact.present),
         severity_level: severity.level
     };
 }
@@ -968,6 +1128,10 @@ function getDetectedPatterns(features) {
         patterns.push('Ambivalence toward change');
     }
 
+    if (features.financial_impact && features.financial_impact.present) {
+        patterns.push('Financial impact');
+    }
+
     return patterns;
 }
 
@@ -995,6 +1159,10 @@ function generateBehavioralSummary(features, severity, awareness) {
 
     if (features.failed_attempts.present) {
         patternLabels.push('upaya berhenti yang gagal');
+    }
+
+    if (features.financial_impact && features.financial_impact.present) {
+        patternLabels.push('dampak finansial');
     }
 
     if (!patternLabels.length) {
@@ -1194,6 +1362,9 @@ function buildAdvancedLayer(baseResult) {
     if (scores.change_difficulty_score && scores.change_difficulty_score.value >= HIGH_SCORE_THRESHOLD) {
         addReason('high_change_difficulty');
     }
+    if (scores.financial_impact_score && scores.financial_impact_score.value >= HIGH_SCORE_THRESHOLD) {
+        addReason('high_financial_expenditure');
+    }
     if (distortions.rationalization && distortions.rationalization.present) {
         addReason('rationalization');
     }
@@ -1301,6 +1472,14 @@ function analyzeFull(text) {
         if (behavioralFeatures.present_bias.present && riskIndicators.indexOf('present_bias') === -1) {
             riskIndicators.push('present_bias');
         }
+        if (behavioralFeatures.financial_impact && behavioralFeatures.financial_impact.present &&
+            riskIndicators.indexOf('financial_impact_present') === -1) {
+            riskIndicators.push('financial_impact_present');
+        }
+        if (behavioralFeatures.financial_impact && behavioralFeatures.financial_impact.debt_reliance &&
+            riskIndicators.indexOf('financial_debt_reliance') === -1) {
+            riskIndicators.push('financial_debt_reliance');
+        }
         if (awareness.level === 'HIGH' && protectiveFactors.indexOf('high_problem_awareness') === -1) {
             protectiveFactors.push('high_problem_awareness');
         }
@@ -1352,6 +1531,8 @@ function analyzeFull(text) {
         extractTemporal,
         analyzeEmotionTransition,
         extractFunctionalImpact,
+        extractFinancialImpact,
+        parseMoneyMentions,
         detectHabitLoop,
         assessChangeReadiness,
         computeQuantitativeScores,

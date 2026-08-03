@@ -203,7 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 margin: 1.25rem 0;
                 text-align: center;
             }
-            .axis-radar-wrap svg { max-width: 100%; height: auto; }
+            .axis-radar-wrap svg { max-width: 100%; height: auto; overflow: visible; }
+            .axis-radar-wrap { max-width: 560px; margin-left: auto; margin-right: auto; }
             .axis-radar-title {
                 font-size: 0.85rem;
                 font-weight: 600;
@@ -392,9 +393,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const keys = Object.keys(axisTotals).filter((k) => k !== 'minimization' && k !== 'externalAttribution' && k !== 'internalAttribution');
         if (keys.length < 3) return '';
 
-        const size = 420;
+        const size = 680;
         const center = size / 2;
-        const maxRadius = center - 90;
+        const maxRadius = center - 210;
+        const labelRadius = maxRadius + 34;
         const maxVal = Math.max(2, ...keys.map((k) => axisTotals[k] || 0));
         const angleStep = (2 * Math.PI) / keys.length;
 
@@ -415,17 +417,39 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<polygon points="${ringPoints}" fill="none" stroke="var(--border-color, #ddd)" stroke-width="1" opacity="0.6"/>`;
         }).join('');
 
+        // Pecah label panjang jadi maksimal 2 baris (di spasi terdekat tengah)
+        // supaya tidak melebar terlalu jauh secara horizontal dan terpotong
+        // oleh batas viewBox SVG.
+        function wrapLabel(text) {
+            if (text.length <= 16) return [text];
+            const words = text.split(' ');
+            if (words.length < 2) return [text];
+            let bestSplit = 1;
+            let bestDiff = Infinity;
+            for (let s = 1; s < words.length; s++) {
+                const l1 = words.slice(0, s).join(' ').length;
+                const l2 = words.slice(s).join(' ').length;
+                const diff = Math.abs(l1 - l2);
+                if (diff < bestDiff) { bestDiff = diff; bestSplit = s; }
+            }
+            return [words.slice(0, bestSplit).join(' '), words.slice(bestSplit).join(' ')];
+        }
+
         const axisLines = keys.map((k, i) => {
             const angle = angleStep * i - Math.PI / 2;
             const x2 = center + maxRadius * Math.cos(angle);
             const y2 = center + maxRadius * Math.sin(angle);
-            const labelX = center + (maxRadius + 45) * Math.cos(angle);
-            const labelY = center + (maxRadius + 45) * Math.sin(angle);
+            const labelX = center + labelRadius * Math.cos(angle);
+            const labelY = center + labelRadius * Math.sin(angle);
             const anchor = Math.cos(angle) > 0.3 ? 'start' : Math.cos(angle) < -0.3 ? 'end' : 'middle';
             const label = labels[k] ? (currentLang === 'id' ? labels[k].id : labels[k].en) : k;
+            const lines = wrapLabel(label);
+            const lineHeight = 12;
+            const startDy = -((lines.length - 1) * lineHeight) / 2;
+            const tspans = lines.map((line, li) => `<tspan x="${labelX.toFixed(1)}" dy="${li === 0 ? startDy : lineHeight}">${escapeHtml(line)}</tspan>`).join('');
             return `
                 <line x1="${center}" y1="${center}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--border-color, #ddd)" stroke-width="1" opacity="0.6"/>
-                <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9.5" fill="var(--text-muted, #666)" text-anchor="${anchor}" dominant-baseline="middle">${escapeHtml(label)}</text>`;
+                <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="11" fill="var(--text-muted, #666)" text-anchor="${anchor}" dominant-baseline="middle">${tspans}</text>`;
         }).join('');
 
         return `

@@ -91,6 +91,9 @@
         present_bias: { id: 'Bias condong ke kepuasan masa kini', en: 'Present-bias toward immediate gratification' },
         high_ambivalence: { id: 'Ambivalensi / konflik batin soal berubah', en: 'Ambivalence / internal conflict about changing' },
         intensity_amplified: { id: 'Bahasa intensitas tinggi menguatkan bukti di atas', en: 'High-intensity language reinforcing the evidence above' },
+        financial_impact_present: { id: 'Dampak finansial terkait perilaku disebutkan', en: 'Financial impact related to the behavior mentioned' },
+        financial_debt_reliance: { id: 'Ketergantungan pada utang/paylater untuk membiayai perilaku', en: 'Reliance on debt/pay-later to fund the behavior' },
+        high_financial_expenditure: { id: 'Estimasi pengeluaran bulanan tergolong tinggi', en: 'Estimated monthly spending is high' },
 
         // --- key tambahan dari buildAdvancedLayer() (berbasis skor 0-10) ---
         high_loss_of_control: { id: 'Skor kehilangan kendali tinggi', en: 'High loss-of-control score' },
@@ -140,8 +143,19 @@
         monitoring: { id: 'Pemantauan Pola Penggunaan', en: 'Usage Monitoring' }
     };
 
+    const FINANCIAL_BAND_LABEL = {
+        minimal: { id: 'Minimal (< Rp100.000/bulan)', en: 'Minimal (< Rp100,000/month)' },
+        moderate: { id: 'Sedang (Rp100.000–Rp300.000/bulan)', en: 'Moderate (Rp100,000–Rp300,000/month)' },
+        high: { id: 'Tinggi (Rp300.000–Rp1.000.000/bulan)', en: 'High (Rp300,000–Rp1,000,000/month)' },
+        very_high: { id: 'Sangat Tinggi (> Rp1.000.000/bulan)', en: 'Very High (> Rp1,000,000/month)' }
+    };
+
     function labelOr(map, key) {
         return map[key] || { id: key, en: key };
+    }
+
+    function formatRupiah(amount) {
+        return 'Rp' + Number(amount).toLocaleString('id-ID');
     }
 
     /* ---------- Gaya panel (disuntikkan sekali, meniru pola
@@ -218,6 +232,11 @@
         const distortionHits = {};
         let loopCount = 0;
         let escalationCount = 0;
+        let financialAmount = null;
+        let financialBand = null;
+        let financialEvidence = [];
+        let debtReliance = false;
+        let explicitZeroSpend = false;
 
         fullResults.forEach((r) => {
             const adv = r.advanced;
@@ -234,6 +253,21 @@
             });
             if (r.habit_loop && r.habit_loop.loop_detected) loopCount += 1;
             if (r.temporal && r.temporal.behavior_escalation) escalationCount += 1;
+
+            // Ambil nominal/istilah finansial dari bagian mana pun yang
+            // menyebutkannya (biasanya section "Konsekuensi Finansial",
+            // tapi tidak dibatasi hanya section itu).
+            const fin = r.functional_impact && r.functional_impact.financial;
+            if (fin) {
+                if (typeof fin.estimated_monthly_amount === 'number' &&
+                    (financialAmount === null || fin.estimated_monthly_amount > financialAmount)) {
+                    financialAmount = fin.estimated_monthly_amount;
+                    financialBand = fin.spending_band;
+                }
+                if (fin.debt_reliance) debtReliance = true;
+                if (fin.explicit_zero_spend_reported) explicitZeroSpend = true;
+                financialEvidence = financialEvidence.concat(fin.evidence || []);
+            }
         });
 
         let level = 'low';
@@ -247,7 +281,14 @@
             interventions: Array.from(interventionMap.values()),
             archetypeHits, distortionHits,
             loopCount, escalationCount,
-            sectionCount: fullResults.length
+            sectionCount: fullResults.length,
+            financial: {
+                amount: financialAmount,
+                band: financialBand,
+                debtReliance: debtReliance,
+                explicitZeroSpend: explicitZeroSpend,
+                evidence: financialEvidence.slice(0, 3)
+            }
         };
     }
 
@@ -305,11 +346,31 @@
               )}</div>`
             : '';
 
+        const fin = agg.financial || {};
+        const financialHtml = (fin.amount || fin.debtReliance || fin.explicitZeroSpend)
+            ? `<div class="abp-section">
+                    <div class="abp-section-title">${bi('Estimasi Dampak Finansial', 'Estimated Financial Impact')}</div>
+                    ${typeof fin.amount === 'number'
+                        ? `<div>${bi('Perkiraan pengeluaran bulanan yang disebutkan', 'Mentioned estimated monthly spending')}: <strong>${formatRupiah(fin.amount)}</strong>${fin.band ? ` — ${bi(labelOr(FINANCIAL_BAND_LABEL, fin.band).id, labelOr(FINANCIAL_BAND_LABEL, fin.band).en)}` : ''}</div>`
+                        : ''}
+                    ${fin.debtReliance
+                        ? `<div style="margin-top:.4rem;">${bi('Ada indikasi penggunaan utang/paylater untuk membiayai perilaku ini.', 'There are indications of relying on debt/pay-later to fund this behavior.')}</div>`
+                        : ''}
+                    ${(!fin.amount && !fin.debtReliance && fin.explicitZeroSpend)
+                        ? `<div>${bi('Pengguna melaporkan tidak ada pengeluaran finansial terkait perilaku ini.', 'The user reported no financial spending related to this behavior.')}</div>`
+                        : ''}
+                    ${fin.evidence && fin.evidence.length
+                        ? `<div class="abp-evidence">◈ "${escapeHtml(fin.evidence[0])}"</div>`
+                        : ''}
+               </div>`
+            : '';
+
         return `
             <div class="atlas-behavioral-panel" id="atlasBehavioralPanel">
                 <h3>◈ ${bi('Analisis Perilaku Lanjutan', 'Advanced Behavioral Analysis')}</h3>
                 <span class="risk-badge ${riskClass}">${bi(riskLabel.id, riskLabel.en)}</span>
                 ${loopHtml}
+                ${financialHtml}
                 ${reasonsHtml}
                 ${archetypesHtml}
                 ${distortionsHtml}
