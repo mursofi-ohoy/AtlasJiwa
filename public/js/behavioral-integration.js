@@ -109,6 +109,17 @@
         urgency_markers_present: { id: 'Penanda urgensi/kedaruratan dalam narasi', en: 'Urgency markers present in narrative' },
         physical_symptoms_present: { id: 'Gejala fisik disebutkan', en: 'Physical symptoms mentioned' },
         catastrophizing_language: { id: 'Bahasa katastrofik (dari analisis leksikal)', en: 'Catastrophizing language (lexical layer)' }
+
+        // --- v2 (atlas-behavioral-advanced.js): uang, kebiasaan, keyakinan kebutuhan ---
+        financial_behavior_present: { id: 'Pola pengeluaran uang terkait perilaku (top up, gacha, checkout impulsif, langganan)', en: 'Spending patterns tied to the behavior (top-ups, gacha, impulsive checkout, subscriptions)' },
+        financial_debt_terms: { id: 'Ada bahasa utang/paylater untuk membiayai perilaku', en: 'Debt/pay-later language used to fund the behavior' },
+        daily_routine_displacement: { id: 'Rutinitas dasar tergeser (makan, tidur, kewajiban)', en: 'Basic routines displaced (meals, sleep, duties)' },
+        habit_automaticity: { id: 'Perilaku berjalan otomatis tanpa niat sadar', en: 'Behavior runs automatically without conscious intent' },
+        perceived_necessity: { id: 'Keyakinan "butuh/harus" terhadap perilaku', en: '"Need/must" belief about the behavior' },
+        sole_coping_belief: { id: 'Perilaku dipercaya sebagai satu-satunya cara meredakan emosi', en: 'Behavior believed to be the only way to relieve emotions' },
+        entitlement_self_reward: { id: 'Pola "self-reward / me time" yang memperkuat perilaku', en: '"Self-reward / me time" pattern reinforcing the behavior' },
+        normalization_belief: { id: 'Normalisasi / perbandingan sosial untuk membenarkan perilaku', en: 'Normalization / social comparison justifying the behavior' },
+        domain_specific_need: { id: 'Kebutuhan khas konteks (event game, takut ketinggalan info saat scrolling)', en: 'Context-specific needs (game events, fear of missing info while scrolling)' },
     };
     const ARCHETYPE_LABEL = {
         doomscrolling: { id: 'Doomscrolling', en: 'Doomscrolling' },
@@ -141,13 +152,32 @@
         relationship_repair: { id: 'Pemulihan Hubungan', en: 'Relationship Repair' },
         priority_blocking: { id: 'Pengamanan Prioritas Utama', en: 'Priority Blocking' },
         monitoring: { id: 'Pemantauan Pola Penggunaan', en: 'Usage Monitoring' }
+        financial_boundary: { id: 'Batas Finansial (anggaran & pemisahan alat bayar)', en: 'Financial Boundaries (budget & separated payment tools)' },
+        routine_replacement: { id: 'Pengganti Rutinitas & Proteksi Jam Dasar', en: 'Routine Replacement & Core-Hour Protection' },
+        belief_restructuring: { id: 'Restrukturisasi Keyakinan ("butuh / normal / satu-satunya cara")', en: 'Belief Restructuring ("need it / normal / only way")' },
     };
 
-    const FINANCIAL_BAND_LABEL = {
-        minimal: { id: 'Minimal (< Rp100.000/bulan)', en: 'Minimal (< Rp100,000/month)' },
-        moderate: { id: 'Sedang (Rp100.000–Rp300.000/bulan)', en: 'Moderate (Rp100,000–Rp300,000/month)' },
-        high: { id: 'Tinggi (Rp300.000–Rp1.000.000/bulan)', en: 'High (Rp300,000–Rp1,000,000/month)' },
-        very_high: { id: 'Sangat Tinggi (> Rp1.000.000/bulan)', en: 'Very High (> Rp1,000,000/month)' }
+   const FINANCIAL_BAND_LABEL = {
+    minimal: {
+        id: 'Minimal (< Rp100.000/bulan ≈ US$6)',
+        en: 'Minimal (< US$6/month)'
+    },
+
+    moderate: {
+        id: 'Sedang (Rp100.000–Rp300.000/bulan ≈ US$6–19)',
+        en: 'Moderate (US$6–19/month)'
+    },
+
+    high: {
+        id: 'Tinggi (Rp300.000–Rp1.000.000/bulan ≈ US$19–63)',
+        en: 'High (US$19–63/month)'
+    },
+
+    very_high: {
+        id: 'Sangat Tinggi (> Rp1.000.000/bulan ≈ US$63)',
+        en: 'Very High (> US$63/month)'
+    }
+};
     };
 
     function labelOr(map, key) {
@@ -332,7 +362,7 @@
                     ${agg.interventions.map((iv) => `
                         <div class="abp-strategy">
                             <div class="abp-strategy-name">${bi(labelOr(STRATEGY_LABEL, iv.strategy).id, labelOr(STRATEGY_LABEL, iv.strategy).en)}</div>
-                            <div>${escapeHtml(iv.rationale || '')}</div>
+                            <div>${iv.rationale_bi ? biBlock(iv.rationale_bi.id, iv.rationale_bi.en) : escapeHtml(iv.rationale || '')}</div>
                             ${iv.evidence && iv.evidence.length ? `<div class="abp-evidence">◈ "${escapeHtml(iv.evidence[0])}"</div>` : ''}
                         </div>
                     `).join('')}
