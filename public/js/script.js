@@ -392,9 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const keys = Object.keys(axisTotals).filter((k) => k !== 'minimization' && k !== 'externalAttribution' && k !== 'internalAttribution');
         if (keys.length < 3) return '';
 
-        const size = 320;
+        const size = 420;
         const center = size / 2;
-        const maxRadius = center - 56;
+        const maxRadius = center - 90;
         const maxVal = Math.max(2, ...keys.map((k) => axisTotals[k] || 0));
         const angleStep = (2 * Math.PI) / keys.length;
 
@@ -419,8 +419,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const angle = angleStep * i - Math.PI / 2;
             const x2 = center + maxRadius * Math.cos(angle);
             const y2 = center + maxRadius * Math.sin(angle);
-            const labelX = center + (maxRadius + 34) * Math.cos(angle);
-            const labelY = center + (maxRadius + 34) * Math.sin(angle);
+            const labelX = center + (maxRadius + 45) * Math.cos(angle);
+            const labelY = center + (maxRadius + 45) * Math.sin(angle);
             const anchor = Math.cos(angle) > 0.3 ? 'start' : Math.cos(angle) < -0.3 ? 'end' : 'middle';
             const label = labels[k] ? (currentLang === 'id' ? labels[k].id : labels[k].en) : k;
             return `
