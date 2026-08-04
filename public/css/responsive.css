@@ -1,0 +1,214 @@
+/* =========================================================
+   ATLAS JIWA — Responsive Overrides (mobile & tablet only)
+   =========================================================
+   Cara pakai file ini:
+   - File ini di-load SETELAH style.css / admin.css / auth.css,
+     sehingga aturan di sini meng-override lewat urutan cascade,
+     bukan lewat spesifisitas selector yang lebih tinggi.
+   - SEMUA aturan di sini dibungkus @media (max-width: ...),
+     jadi TIDAK ADA satupun yang memengaruhi tampilan desktop
+     (>1024px). Layout desktop yang sudah ada di style.css /
+     admin.css / auth.css tidak disentuh maupun dihapus.
+   - Breakpoint mengikuti daftar target device:
+       Desktop : 1920 / 1600 / 1366 (tidak diubah)
+       Tablet  : 1024 / 768
+       Mobile  : 430 / 414 / 390 / 375 / 360 / 320
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   0. Guard anti horizontal-scroll (berlaku di semua breakpoint
+      <=1024px — tidak memengaruhi desktop karena dibungkus
+      media query).
+   --------------------------------------------------------- */
+@media (max-width: 1024px) {
+    html, body { max-width: 100%; overflow-x: hidden; }
+    img, svg, video, canvas, table, iframe { max-width: 100%; }
+    .wrap, .container { max-width: 100%; }
+}
+
+/* ---------------------------------------------------------
+   1. TABLET (<=1024px) — belum tercakup oleh @media 768px yang
+      sudah ada di style.css/admin.css, jadi ditambahkan di sini.
+   --------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .container { padding: 0 1.25rem; }
+
+    /* Screening — grid instrumen & demografi lebih rapat di tablet */
+    .test-options { grid-template-columns: 1fr; }
+    .intro-grid,
+    .demographic-grid,
+    .resource-grid,
+    .results-overview {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    /* Panel konsultasi AI: tinggi area chat menyesuaikan viewport */
+    .agent-chat-messages { max-height: 46vh; }
+
+    /* Admin dashboard */
+    .wrap { padding: 0 20px; }
+    .stat-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
+
+/* ---------------------------------------------------------
+   2. TOUCH TARGETS (<=1024px) — tombol, radio, checkbox minimal
+      44x44px agar mudah disentuh, tanpa mengubah tampilan
+      desktop (mouse/trackpad tidak butuh target sebesar ini).
+   --------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .btn,
+    .btn-sm,
+    .btn-primary,
+    .btn-secondary,
+    .btn-outline,
+    .auth-submit,
+    .disclaimer-cta,
+    .agent-chat-input-row button,
+    .icon-btn,
+    .theme-toggle,
+    .lang-toggle,
+    .nav-toggle,
+    .atlas-logout-btn {
+        min-height: 44px;
+    }
+
+    .icon-btn,
+    .theme-toggle,
+    .nav-toggle {
+        min-width: 44px;
+    }
+
+    .scale-option label {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .checkbox-item {
+        min-height: 44px;
+        padding: 0.5rem 0.9rem;
+    }
+
+    .test-option { min-height: 44px; }
+
+    .agent-chat-input-row input {
+        min-height: 44px;
+    }
+}
+
+/* ---------------------------------------------------------
+   3. MOBILE (<=768px)
+   --------------------------------------------------------- */
+@media (max-width: 768px) {
+    .container { padding: 0 1rem; }
+
+    /* Header actions (bahasa/tema/logout) tetap dapat diakses dan
+       tidak terpotong — dibiarkan boleh wrap ke baris baru. */
+    .header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        row-gap: 0.5rem;
+    }
+    .atlas-user-name {
+        max-width: 40vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .hero-title { font-size: clamp(2rem, 9vw, 2.8rem); }
+
+    /* Kartu screening memenuhi lebar layar mobile */
+    .screening-header { padding: 1rem 1.1rem; }
+    .screening-body { padding: 1.1rem; }
+    .test-selector { padding: 1.25rem; }
+
+    .scale-options { gap: 0.4rem; }
+
+    .demographic-grid,
+    .intro-grid,
+    .resource-grid,
+    .results-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .composite-risk-panel { justify-content: center; text-align: center; }
+    .addiction-component-row {
+        grid-template-columns: 110px 1fr auto;
+        font-size: 0.74rem;
+    }
+
+    /* Radar chart tetap terbaca di layar sempit */
+    .axis-radar-wrap { max-width: 100%; }
+
+    /* Panel Konsultasi AI */
+    .agent-chat-panel { margin-top: 1.4rem; }
+    .agent-chat-messages { max-height: 50vh; }
+    .agent-chat-bubble { max-width: 80%; font-size: 0.9rem; }
+    .agent-chat-header {
+        flex-wrap: wrap;
+        row-gap: 0.35rem;
+    }
+
+    /* Admin dashboard */
+    .admin-header-inner { row-gap: 10px; }
+    .panel-actions { width: 100%; }
+    .search-input { flex: 1 1 100%; }
+}
+
+/* ---------------------------------------------------------
+   4. SMALL MOBILE (<=430px) — mencakup 430/414/390/375/360
+   --------------------------------------------------------- */
+@media (max-width: 430px) {
+    .container { padding: 0 0.85rem; }
+
+    .hero { padding: 4rem 0 2.5rem; }
+    .hero-eyebrow { font-size: 0.72rem; letter-spacing: 0.15em; }
+
+    .test-selector,
+    .results-container,
+    .overall-result { padding: 1.1rem; }
+
+    .test-option { padding: 1.1rem; flex-wrap: wrap; }
+
+    .scale-options { flex-direction: column; }
+    .scale-option { min-width: 0; width: 100%; }
+
+    .screening-actions { flex-direction: column; }
+    .screening-actions .btn { width: 100%; justify-content: center; }
+
+    .checkbox-group { gap: 0.4rem; }
+
+    /* Tombol Send berpindah ke bawah input saat ruang sangat sempit */
+    .agent-chat-input-row {
+        flex-wrap: wrap;
+    }
+    .agent-chat-input-row input {
+        flex: 1 1 100%;
+    }
+    .agent-chat-input-row button {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
+    .agent-chat-bubble { max-width: 88%; }
+
+    /* Auth */
+    .auth-card { padding: 24px 18px 20px; }
+    .auth-topbar { padding: 14px; }
+
+    /* Admin */
+    .stat-grid { grid-template-columns: 1fr; }
+    .modal-card { padding: 20px; }
+}
+
+/* ---------------------------------------------------------
+   5. EXTRA SMALL (<=320px)
+   --------------------------------------------------------- */
+@media (max-width: 320px) {
+    .container { padding: 0 0.65rem; }
+    .hero-title { font-size: 1.7rem; }
+    .section-title { font-size: 1.4rem; }
+    .agent-chat-bubble { max-width: 92%; font-size: 0.85rem; }
+    .btn-sm { padding: 0.55rem 0.8rem; font-size: 0.78rem; }
+}

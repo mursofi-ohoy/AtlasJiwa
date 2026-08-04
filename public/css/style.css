@@ -1287,10 +1287,11 @@ body {
     overflow: hidden;
 }
 .agent-chat-header {
-    padding: 0.9rem 1.1rem;
+    padding: 0.7rem 1.1rem;
     background: var(--accent-bg);
     border-bottom: 1px solid var(--border);
     font-weight: 600;
+    font-size: 0.88rem;
     color: var(--accent);
     display: flex;
     align-items: center;
@@ -1301,6 +1302,35 @@ body {
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-dot--online {
+    background: #22c55e;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+.status-dot--pending {
+    background: #eab308;
+    animation: statusDotPulse 1.4s ease-in-out infinite;
+}
+.status-dot--offline {
+    background: #ef4444;
+}
+@keyframes statusDotPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+.send-icon {
+    font-size: 0.85em;
+    line-height: 1;
 }
 .agent-chat-messages {
     max-height: 340px;
@@ -1317,6 +1347,12 @@ body {
     font-size: 0.92rem;
     line-height: 1.45;
     white-space: pre-wrap;
+}
+.agent-chat-bubble p {
+    margin: 0 0 0.65em 0;
+}
+.agent-chat-bubble p:last-child {
+    margin-bottom: 0;
 }
 .agent-chat-bubble.assistant {
     align-self: flex-start;
@@ -1346,24 +1382,28 @@ body {
 }
 .agent-chat-input-row input {
     flex: 1;
-    padding: 0.55rem 0.8rem;
+    padding: 0.42rem 0.8rem;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: var(--bg-primary);
     color: var(--text-primary);
     font-family: inherit;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
 }
 .agent-chat-input-row button {
-    padding: 0.55rem 1.1rem;
+    padding: 0.42rem 1.05rem;
     border-radius: 8px;
     border: none;
     background: var(--accent);
     color: #fff;
     font-weight: 600;
+    font-size: 0.88rem;
     cursor: pointer;
     transition: background var(--transition);
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
 }
 .agent-chat-input-row button:hover {
     background: var(--accent-soft);

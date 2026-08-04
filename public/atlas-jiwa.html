@@ -259,6 +259,74 @@
     .disclaimer{flex-direction:column;}
     .footer-bottom{flex-direction:column;}
   }
+
+  /* =========================================================
+     RESPONSIVE OVERRIDES (mobile & tablet only) — ditambahkan
+     tanpa mengubah atau menghapus aturan desktop di atas.
+     Semua tampilan >1024px tetap identik dengan sebelumnya.
+     ========================================================= */
+
+  /* Anti horizontal-scroll pada tablet/mobile */
+  @media (max-width:1024px){
+    html, body{max-width:100%; overflow-x:hidden;}
+    img, svg{max-width:100%;}
+  }
+
+  /* Tablet 1024px — belum tercakup breakpoint 900px di atas */
+  @media (max-width:1024px){
+    .wrap{padding:0 22px;}
+    .topic-grid{grid-template-columns:repeat(auto-fit, minmax(220px,1fr));}
+  }
+
+  /* Menu mobile: tombol hamburger + dropdown nav.links */
+  .mobile-nav-toggle{
+    display:none;
+    width:44px; height:44px; border-radius:12px;
+    border:1px solid var(--border); background:var(--surface);
+    align-items:center; justify-content:center; cursor:pointer;
+    flex-direction:column; gap:4px;
+  }
+  .mobile-nav-toggle span{display:block; width:20px; height:2px; background:var(--text);}
+  @media (max-width:900px){
+    .mobile-nav-toggle{display:flex;}
+    nav.links{
+      display:flex; position:absolute; left:0; right:0; top:100%;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      padding:10px 28px 16px; transform:translateY(-8px); opacity:0;
+      pointer-events:none; transition:transform .2s ease, opacity .2s ease;
+    }
+    nav.links.open{transform:translateY(0); opacity:1; pointer-events:auto;}
+    nav.links a{padding:10px 0; width:100%;}
+    header{position:sticky;}
+    .nav{position:relative;}
+  }
+
+  /* Touch targets minimal 44px di tablet & mobile */
+  @media (max-width:1024px){
+    .btn{min-height:44px;}
+    .icon-btn, .pill-toggle button, .mobile-nav-toggle{min-height:44px;}
+    .icon-btn{min-width:44px;}
+    .atlas-logout-btn{min-height:44px;}
+  }
+
+  /* Mobile kecil: 430 / 414 / 390 / 375 / 360 */
+  @media (max-width:430px){
+    .wrap{padding:0 16px;}
+    .hero{padding:44px 0 32px;}
+    .hero-actions{flex-direction:column; align-items:stretch;}
+    .hero-actions .btn{justify-content:center;}
+    .about-card, .welcome-section .card, .help-card{padding:24px 20px;}
+    .footer-links{gap:18px;}
+    .fab{right:16px; bottom:16px; padding:12px 16px; font-size:0.82rem;}
+  }
+
+  /* Extra small: 320px */
+  @media (max-width:320px){
+    .wrap{padding:0 14px;}
+    .hero h1{font-size:1.8rem;}
+    .section-head h2{font-size:1.4rem;}
+  }
 </style>
 </head>
 <body>
@@ -273,13 +341,16 @@
       </svg>
       <span class="brand-name">ATLAS JIWA</span>
     </a>
-    <nav class="links">
+    <nav class="links" id="navLinks">
       <a href="#beranda" data-en="Home">Beranda</a>
       <a href="#tentang" data-en="About">Tentang</a>
       <a href="#topik" data-en="Topics">Topik</a>
       <a href="#bantuan" data-en="Professional Help">Bantuan Profesional</a>
     </nav>
     <div class="controls">
+      <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Buka menu navigasi" aria-expanded="false" onclick="toggleMobileNav()">
+        <span></span><span></span><span></span>
+      </button>
       <div class="pill-toggle" role="group" aria-label="Bahasa">
         <button id="lang-id" class="active" onclick="setLang('id')">ID</button>
         <button id="lang-en" onclick="setLang('en')">EN</button>
@@ -616,6 +687,26 @@
     localStorage.setItem('atlasjiwa-lang', lang);
     updateLangButtons(lang);
   }
+
+  function toggleMobileNav(){
+    var nav = document.getElementById('navLinks');
+    var btn = document.getElementById('mobileNavToggle');
+    var isOpen = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  // Tutup menu mobile otomatis saat salah satu link diklik atau saat
+  // layar diperbesar melewati breakpoint tablet (900px).
+  document.addEventListener('DOMContentLoaded', function(){
+    var nav = document.getElementById('navLinks');
+    if (!nav) return;
+    nav.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', function(){ nav.classList.remove('open'); });
+    });
+    window.addEventListener('resize', function(){
+      if (window.innerWidth > 900) nav.classList.remove('open');
+    });
+  });
 
   function toggleTheme(){
     var current = document.documentElement.getAttribute('data-theme');

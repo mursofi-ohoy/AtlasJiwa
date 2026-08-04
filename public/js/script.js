@@ -229,6 +229,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 border-radius: 6px;
                 color: var(--text-primary, #333);
             }
+
+            /* ---- Responsive (mobile/tablet only, tidak mengubah tampilan
+               desktop di atas 1024px) ---- */
+            @media (max-width: 480px) {
+                .addiction-component-row {
+                    grid-template-columns: 1fr;
+                    row-gap: 0.2rem;
+                    padding-bottom: 0.4rem;
+                    border-bottom: 1px dashed var(--border-color, #e0e0e0);
+                }
+                .addiction-component-score { text-align: left; }
+                .composite-risk-panel { flex-direction: column; text-align: center; }
+                .composite-risk-meta { min-width: 0; width: 100%; }
+            }
         `;
         document.head.appendChild(style);
     })();
@@ -1433,12 +1447,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="agent-chat-panel" id="agentChatPanel">
                 <div class="agent-chat-header">
                     <span>◈ ${bi('Konsultasi Singkat dengan Atlas Jiwa AI', 'Brief Consultation with Atlas Jiwa AI')}</span>
-                    <span class="agent-chat-status" id="agentChatStatus">${bi('Menyiapkan sesi…', 'Preparing session…')}</span>
+                    <span class="agent-chat-status" id="agentChatStatus"><span class="status-dot status-dot--pending"></span>${bi('Menyiapkan sesi…', 'Preparing session…')}</span>
                 </div>
                 <div class="agent-chat-messages" id="agentChatMessages"></div>
                 <div class="agent-chat-input-row">
-                    <input type="text" id="agentChatInput" placeholder="${bi('Tulis pesan Anda…', 'Type your message…')}" disabled />
-                    <button type="button" id="agentChatSendBtn" disabled>${bi('Kirim', 'Send')}</button>
+                    <input type="text" id="agentChatInput" placeholder="${currentLang === 'id' ? 'Tulis pesan Anda…' : 'Type your message…'}" disabled />
+                    <button type="button" id="agentChatSendBtn" disabled><span class="send-icon" aria-hidden="true">➤</span>${bi('Kirim', 'Send')}</button>
                 </div>
             </div>`
             : '';
@@ -1466,6 +1480,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // ✅ TAMBAHAN: hanya render sebagai HTML jika eksplisit diminta
     if (opts.html) {
         bubble.innerHTML = text;
+    } else if (role === 'assistant') {
+        // Pecah balasan AI per paragraf (baris kosong) supaya jawaban
+        // panjang tidak jadi satu blok teks yang padat — tiap paragraf
+        // dirender sebagai <p> terpisah dengan escaping aman.
+        const paragraphs = String(text)
+            .split(/\n{2,}/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+        bubble.innerHTML = (paragraphs.length ? paragraphs : [String(text)])
+            .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+            .join('');
     } else {
         bubble.textContent = text;
     }
@@ -1500,14 +1525,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result = await window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType, currentLang);
             agentChatSessionId = result.sessionId;
-            statusEl.innerHTML = bi('Siap', 'Ready');
+            statusEl.innerHTML = `<span class="status-dot status-dot--online"></span>${bi('Siap', 'Ready')}`;
             appendAgentChatBubble('assistant', result.response, { crisis: result.isCrisis });
             if (result.isCrisis) setAgentChatCrisisBanner(true);
             inputEl.disabled = false;
             sendBtn.disabled = false;
         } catch (err) {
             console.error('[ATLAS] Gagal membuka sesi konsultasi AI:', err);
-           statusEl.innerHTML = bi('Tidak tersedia saat ini', 'Currently unavailable');   // ← Bug 3
+           statusEl.innerHTML = `<span class="status-dot status-dot--offline"></span>${bi('Tidak tersedia saat ini', 'Currently unavailable')}`;   // ← Bug 3
 appendAgentChatBubble(
     'assistant',
     bi(
