@@ -31,7 +31,7 @@ Backend menggabungkannya ke system prompt Gemini di gemini.service.js.
 'use strict';
 
 const express = require('express');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { requireAuth } = require('../middleware');
 const geminiService = require('../services/gemini.service');
 const { normalizeTopic, VALID_TOPICS } = require('../services/gemini-prompts');
@@ -43,13 +43,23 @@ const router = express.Router();
 // Lebih ketat daripada apiLimiter umum karena tiap request
 // memanggil Gemini API (biaya + latensi lebih tinggi).
 // ---------------------------------------------------------
+
+
 const aiRateLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 menit
     max: 12, // maksimal 12 pesan konsultasi AI / menit / user
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => (req.user && req.user.id) || req.ip,
-    message: { error: 'Terlalu banyak permintaan ke konsultasi AI. Coba lagi sebentar lagi.' },
+    keyGenerator: (req) => {
+        if (req.user && req.user.id) {
+            return String(req.user.id);
+        }
+
+        return ipKeyGenerator(req.ip);
+    },
+    message: { 
+        error: 'Terlalu banyak permintaan ke konsultasi AI. Coba lagi sebentar lagi.' 
+    },
 });
 
 // ---------------------------------------------------------
