@@ -2,23 +2,20 @@
    ATLAS JIWA — Gemini Routes (server/routes/gemini.routes.js)
    -----------------------------------------------------------
    Bertugas HANYA:
-     1. requireAuth        (pakai user login yang sudah ada)
+     1. requireAuth        (dari server/middleware.js — sama seperti rute lain)
      2. validasi topic & payload
-     3. rate limit (in-memory, khusus endpoint ini)
+     3. rate limit khusus endpoint ini (express-rate-limit, konsisten
+        dengan authLimiter/apiLimiter di server/middleware.js)
      4. memanggil gemini.service.js dan meneruskan hasil/errornya
 
    TIDAK ADA logika AI di sini (system prompt, pemanggilan Gemini API,
    retry, dsb ada di services/gemini.service.js & gemini-prompts.js).
-
-   ASUMSI: `requireAuth` diekspor dari '../middleware' (satu modul
-   yang sama dengan `apiLimiter` yang sudah dipakai di server.js).
-   Jika middleware auth project berada di file lain, sesuaikan baris
-   require di bawah — tidak ada bagian lain yang perlu diubah.
    ========================================= */
 
 'use strict';
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware');
 const geminiService = require('../services/gemini.service');
 const { normalizeTopic, VALID_TOPICS } = require('../services/gemini-prompts');
@@ -26,42 +23,20 @@ const { normalizeTopic, VALID_TOPICS } = require('../services/gemini-prompts');
 const router = express.Router();
 
 // ---------------------------------------------------------
-// Rate limiter ringan khusus /api/ai (tanpa dependency baru).
-// Membatasi per user (req.user.id jika ada) atau per IP sebagai
-// fallback, sliding window sederhana di memori proses.
-// Catatan: untuk deployment multi-instance, ganti dengan store
-// bersama (mis. Redis) — di luar scope perubahan ini.
+// Rate limiter khusus /api/ai/consult — lebih ketat daripada apiLimiter
+// umum (300/15 menit) karena tiap request memanggil Gemini API (biaya +
+// latensi lebih tinggi). Key per-user (req.user.id, tersedia setelah
+// requireAuth) supaya satu user rakus tidak menghabiskan jatah user lain;
+// fallback ke IP kalau req.user entah kenapa kosong.
 // ---------------------------------------------------------
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 menit
-const RATE_LIMIT_MAX = 12; // maksimal 12 request/menit per user
-
-const rateBuckets = new Map();
-
-function aiRateLimiter(req, res, next) {
-    const key = (req.user && (req.user.id || req.user.userId)) || req.ip || 'anonymous';
-    const now = Date.now();
-    const bucket = rateBuckets.get(key) || [];
-    const recent = bucket.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-
-    if (recent.length >= RATE_LIMIT_MAX) {
-        return res.status(429).json({ error: 'Terlalu banyak permintaan ke konsultasi AI. Coba lagi sebentar lagi.' });
-    }
-
-    recent.push(now);
-    rateBuckets.set(key, recent);
-
-    // Housekeeping ringan supaya Map tidak tumbuh tanpa batas.
-    if (rateBuckets.size > 5000) {
-        const cutoff = now - RATE_LIMIT_WINDOW_MS;
-        for (const [k, v] of rateBuckets) {
-            const stillValid = v.filter((ts) => ts > cutoff);
-            if (stillValid.length === 0) rateBuckets.delete(k);
-            else rateBuckets.set(k, stillValid);
-        }
-    }
-
-    next();
-}
+const aiRateLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 menit
+    max: 12, // maksimal 12 pesan konsultasi AI / menit / user
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => (req.user && req.user.id) || req.ip,
+    message: { error: 'Terlalu banyak permintaan ke konsultasi AI. Coba lagi sebentar lagi.' },
+});
 
 // ---------------------------------------------------------
 // Validasi payload
