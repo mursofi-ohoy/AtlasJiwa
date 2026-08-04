@@ -13,17 +13,29 @@
    gagal (404 / tidak terhubung).
 
    Supaya situs Cloudflare ini BERDIRI SENDIRI dan tidak lagi tergantung
-   pada Railway sama sekali, seluruh logic auth + screening sekarang
+   pada Railway untuk auth/screening, seluruh logic auth + screening
    diimplementasikan LANGSUNG di Worker ini, memakai Cloudflare D1
    sebagai database (lihat sql/d1_schema.sql) dan Web Crypto API untuk
    hashing password + JWT sesi (lihat src/lib/crypto.js). Tidak ada
-   lagi fetch() keluar ke Railway untuk /api/auth atau /api/screening.
+   fetch() keluar ke Railway untuk /api/auth atau /api/screening.
 
-   Fitur "Konsultasi AI" TIDAK LAGI diproxy oleh Worker ini — berjalan
-   100% di browser lewat public/js/ai-adapter.js (lihat README.md §8).
-   Worker ini hanya menangani /api/auth/* dan /api/screening (skor
-   kuantitatif saja, tanpa jawaban naratif) serta /api/users/* untuk
-   admin.
+   [REVISI] Fitur "Konsultasi AI" (Gemini) TETAP berjalan di backend
+   Railway (server/routes/gemini.routes.js -> gemini.service.js), BUKAN
+   di Worker ini. Sebelumnya Worker tidak meneruskan
+   POST /api/ai/consult sama sekali, sehingga request dari browser
+   (public/js/ai-adapter.js) berhenti di Worker dan menghasilkan 404
+   sebelum sempat mencapai Railway/Gemini. Worker sekarang menambahkan
+   SATU proxy khusus untuk endpoint ini saja:
+
+       Browser --POST /api/ai/consult--> Worker --proxy--> Railway --> Gemini
+
+   Proxy ini HANYA meneruskan request (cookie sesi, Authorization jika
+   ada, Content-Type, body JSON) dan meneruskan balik response Railway
+   apa adanya. Tidak ada logic Gemini, prompt, atau parsing hasil AI di
+   Worker ini — itu semua tetap 100% di Railway (gemini.service.js).
+
+   Worker ini menangani /api/auth/*, /api/screening (skor kuantitatif),
+   /api/users/* untuk admin, dan proxy /api/ai/consult ke Railway.
    ========================================= */
 
 import { hashPassword, comparePassword, signToken, verifyToken } from './lib/crypto.js';
@@ -294,11 +306,97 @@ async function handleUsersStats(request, env) {
 }
 
 // ---------------------------------------------------------
+// AI PROXY: POST /api/ai/consult -> Railway (server/routes/gemini.routes.js)
+//
+// Worker TIDAK memanggil Gemini API sendiri dan TIDAK memvalidasi ulang
+// payload consult (topic/message/history/screeningContext) — itu semua
+// tetap tugas Railway (validateConsultBody + geminiService.consult).
+// Worker hanya bertugas meneruskan request browser ke Railway dan
+// meneruskan balik responsnya apa adanya, supaya:
+//   - Cookie sesi (atlas_session) tetap terkirim -> requireAuth di
+//     Railway tetap bisa mengenali user yang sama seperti di Worker.
+//   - Header Authorization (jika suatu saat dipakai) ikut diteruskan.
+//   - Body JSON diteruskan mentah (tidak diparse ulang) supaya tidak
+//     ada risiko payload berubah bentuk di tengah jalan.
+// ---------------------------------------------------------
+const AI_PROXY_TIMEOUT_MS = 25000; // Gemini bisa butuh waktu; beri jeda wajar sebelum dianggap "down"
+
+function resolveAiBackendUrl(env) {
+    // env.AI_BACKEND_URL bersifat OPSIONAL (override untuk staging/testing).
+    // Jika tidak di-set, default ke URL produksi Railway saat ini.
+    const base = (env.AI_BACKEND_URL || 'https://atlasjiwa-production.up.railway.app').replace(/\/+$/, '');
+    return `${base}/api/ai/consult`;
+}
+
+async function handleAiConsultProxy(request, env) {
+    const targetUrl = resolveAiBackendUrl(env);
+
+    // Hanya teruskan header yang benar-benar relevan untuk auth + payload.
+    // Tidak menambah/menghapus field body — body diteruskan sebagai bytes mentah.
+    const forwardHeaders = new Headers();
+
+    const cookieHeader = request.headers.get('Cookie');
+    if (cookieHeader) forwardHeaders.set('Cookie', cookieHeader);
+
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader) forwardHeaders.set('Authorization', authHeader);
+
+    forwardHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+
+    let requestBody;
+    try {
+        requestBody = await request.arrayBuffer();
+    } catch (err) {
+        return json({ error: 'Body request tidak valid.' }, 400);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AI_PROXY_TIMEOUT_MS);
+
+    let railwayResponse;
+    try {
+        railwayResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: forwardHeaders,
+            body: requestBody,
+            signal: controller.signal,
+        });
+    } catch (err) {
+        console.error('[Proxy /api/ai/consult] Railway tidak dapat dihubungi:', err.message);
+        return json({ error: 'AI backend unavailable' }, 503);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+
+    // Teruskan balik response Railway persis apa adanya (status + body),
+    // termasuk pesan/kode error dari gemini.routes.js (mis. quota, timeout,
+    // invalid_key) supaya public/js/ai-adapter.js tetap bisa membaca kode
+    // error yang sama seperti saat request langsung ke Railway.
+    let responseBody;
+    try {
+        responseBody = await railwayResponse.arrayBuffer();
+    } catch (err) {
+        console.error('[Proxy /api/ai/consult] Gagal membaca response Railway:', err.message);
+        return json({ error: 'AI backend unavailable' }, 503);
+    }
+
+    const responseHeaders = new Headers();
+    const contentType = railwayResponse.headers.get('Content-Type');
+    if (contentType) responseHeaders.set('Content-Type', contentType);
+
+    return new Response(responseBody, {
+        status: railwayResponse.status,
+        headers: responseHeaders,
+    });
+}
+
+// ---------------------------------------------------------
 // ROUTER
 // Catatan arsitektur: proxy /api/agent/* ke FastAPI (opsional, via
-// FASTAPI_BASE_URL) SUDAH DIHAPUS. Fitur "Konsultasi AI" sekarang
-// berjalan 100% di browser lewat public/js/ai-adapter.js — Worker
-// ini tidak perlu tahu apa-apa soal fitur itu lagi.
+// FASTAPI_BASE_URL) SUDAH DIHAPUS. Auth, screening, dan users tetap
+// ditangani langsung di Worker (D1). Satu-satunya proxy keluar yang
+// masih aktif adalah POST /api/ai/consult -> Railway (Gemini), sesuai
+// arsitektur di wrangler.toml.
 // ---------------------------------------------------------
 async function handleApi(request, env) {
     const url = new URL(request.url);
@@ -320,6 +418,9 @@ async function handleApi(request, env) {
 
         if (pathname === '/api/users' && method === 'GET') return await handleUsersList(request, env);
         if (pathname === '/api/users/stats/summary' && method === 'GET') return await handleUsersStats(request, env);
+
+        // [REVISI] Proxy khusus fitur "Konsultasi AI" ke Railway/Gemini.
+        if (pathname === '/api/ai/consult' && method === 'POST') return await handleAiConsultProxy(request, env);
 
         return json({ error: 'Endpoint tidak ditemukan.' }, 404);
     } catch (err) {
