@@ -234,13 +234,14 @@ ON screening_results(screening_type);
 
 
 -- ============================================================
--- AGENT SESSIONS & MESSAGES
--- Riwayat percakapan dengan Atlas Jiwa AI (FastAPI + Qwen/Ollama,
--- lihat backend/app/agent_api.py). Satu sesi biasanya dibuka dengan
--- konteks ringkasan screening (lihat overall_context_*), lalu setiap
--- pesan berikutnya disimpan sebagai baris terpisah di agent_messages
--- beserta skor risiko kualitatif pesan tsb (dari nlp-engine.js,
--- dikirim ulang oleh browser per pesan).
+-- AGENT SESSIONS & MESSAGES  (DEPRECATED, tidak lagi ditulis)
+-- Dulu dipakai untuk menyimpan riwayat percakapan dengan Atlas Jiwa AI
+-- lewat backend FastAPI + Qwen/Ollama (backend/app/agent_api.py).
+-- Backend itu SUDAH DIHAPUS -- konsultasi AI sekarang berjalan 100%
+-- di browser (lihat public/js/ai-adapter.js) dan TIDAK PERNAH
+-- mengirim isi pesan ke server. Definisi tabel ini dipertahankan
+-- apa adanya (tidak di-DROP) hanya supaya baris lama (jika ada) tidak
+-- ikut hilang; tidak ada kode server yang menulis ke sini lagi.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS agent_sessions (

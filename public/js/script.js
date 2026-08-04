@@ -1246,11 +1246,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderResults(data, results, totalScore, totalMax, overallPercent, overallLevel);
 
-        // Kirim hasil screening ke backend ATLAS JIWA (server/routes/screening.routes.js)
-        // agar tersimpan permanen di PostgreSQL, selain tersimpan di localStorage seperti biasa.
-        // Didefinisikan di js/screening-submit.js (dimuat sebelum file ini).
+        // Kirim RINGKASAN SKOR KUANTITATIF SAJA ke backend ATLAS JIWA
+        // (server/routes/screening.routes.js) agar tersimpan permanen di
+        // CockroachDB, selain tersimpan di localStorage seperti biasa.
+        // Jawaban naratif TIDAK dikirim ke server — seluruh analisis
+        // naratif/AI tetap berjalan di browser (lihat summary-engine.js,
+        // ai-adapter.js). Didefinisikan di js/screening-submit.js (dimuat
+        // sebelum file ini).
         if (window.AtlasBackend && typeof window.AtlasBackend.submitScreening === 'function') {
-            window.AtlasBackend.submitScreening(currentTest, data, userAnswers[currentTest]);
+            window.AtlasBackend.submitScreening(currentTest, overallPercent, overallLevel);
         }
 
         document.getElementById('hasil').scrollIntoView({ behavior: 'smooth' });

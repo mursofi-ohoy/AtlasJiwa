@@ -19,7 +19,6 @@ const { runMigrations } = require('./migrate');
 const authRoutes = require('./routes/auth.routes');
 const usersRoutes = require('./routes/users.routes');
 const screeningRoutes = require('./routes/screening.routes');
-const agentRoutes = require('./routes/agent.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,9 +67,11 @@ app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/screening', screeningRoutes);
-// Proxy ke FastAPI (backend/app/agent_api.py) — lihat
-// server/routes/agent.routes.js untuk alasan desain proxy ini.
-app.use('/api/agent', agentRoutes);
+// Catatan arsitektur: proxy ke FastAPI (backend/app/agent_api.py,
+// Qwen/Ollama) SUDAH DIHAPUS. Backend sekarang hanya menangani
+// auth (/api/auth), manajemen user (/api/users), dan penyimpanan
+// skor screening (/api/screening). Seluruh interpretasi/konsultasi
+// AI berjalan di browser — lihat public/js/ai-adapter.js.
 
 // ---------------------------------------------------------
 // Frontend statis (HTML/CSS/JS di /public)

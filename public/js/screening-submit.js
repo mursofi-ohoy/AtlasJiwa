@@ -1,9 +1,24 @@
 /* =========================================
    ATLAS JIWA — Screening Submit (Backend Bridge)
+   -----------------------------------------------------------
    Menjembatani hasil screening (yang tadinya HANYA disimpan ke
    localStorage oleh script.js) supaya juga dikirim & disimpan
-   permanen ke PostgreSQL lewat REST API backend:
+   permanen ke CockroachDB lewat REST API backend:
      POST /api/screening  (lihat server/routes/screening.routes.js)
+
+   PERUBAHAN ARSITEKTUR: versi sebelumnya mengirim SATU baris per
+   pertanyaan, termasuk teks jawaban naratif/kualitatif pengguna
+   (`answer: String(narrative)`). Backend TIDAK BOLEH lagi menerima
+   atau menyimpan narasi — hanya skor kuantitatif komposit + tingkat
+   risiko. Sekarang hanya SATU baris ringkasan yang dikirim per sesi
+   screening:
+     { question_number: 0, question: '<label ringkasan>',
+       answer: '<risk level>', score: <skor komposit 0-100> }
+
+   Kolom `question`/`answer` di tabel screening_results SENGAJA tidak
+   diganti namanya (skema & admin.js tidak disentuh, sesuai batasan
+   "jangan ubah UI/UX") — hanya isinya yang tidak lagi memuat narasi
+   pengguna, cuma label ringkasan & tingkat risiko.
 
    Dipanggil oleh script.js di dalam handler tombol "Hitung Hasil",
    lewat window.AtlasBackend.submitScreening(...).
@@ -24,57 +39,44 @@
     const API_BASE = '/api';
 
     /**
-     * Meratakan jawaban satu sesi screening (satu `screening_type`)
-     * menjadi array baris siap simpan, sesuai bentuk yang diharapkan
-     * server/routes/screening.routes.js -> POST /:
-     *   { screening_type, answers: [{ question_number, question, answer, score }, ...] }
+     * Membentuk SATU baris ringkasan skor kuantitatif siap simpan,
+     * sesuai bentuk yang diharapkan server/routes/screening.routes.js
+     * -> POST /: { screening_type, answers: [{ question_number,
+     * question, answer, score }] }. Tidak ada teks jawaban naratif
+     * yang diikutsertakan sama sekali.
      *
      * @param {string} screeningType  contoh: 'scrolling' | 'gaming'
-     * @param {object} data           screeningData[screeningType] (lihat script.js)
-     * @param {object} answers        userAnswers[screeningType] -> { quantitative, qualitative }
+     * @param {number} overallPercent skor kuantitatif komposit 0-100
+     * @param {{label: {id: string, en: string}}} overallLevel  hasil getLevel() di script.js
      */
-    function buildPayload(screeningType, data, answers) {
-        const rows = [];
-        let runningNumber = 1;
+    function buildPayload(screeningType, overallPercent, overallLevel) {
+        if (typeof overallPercent !== 'number' || Number.isNaN(overallPercent)) return [];
 
-        (data.sections || []).forEach((section) => {
-            const quantAnswers = (answers.quantitative && answers.quantitative[section.id]) || {};
+        const riskLabel = (overallLevel && overallLevel.label && overallLevel.label.id) || '-';
 
-            (section.questions || []).forEach((question, index) => {
-                const rawScore = quantAnswers[index];
-                if (rawScore === undefined || rawScore === null) return; // pertanyaan belum dijawab
-
-                rows.push({
-                    question_number: runningNumber++,
-                    question: `[${section.id}] ${question.id}`, // teks Bahasa Indonesia sebagai acuan utama
-                    answer: String(rawScore),
-                    score: Number(rawScore) || 0,
-                });
-            });
-
-            const narrative = answers.qualitative && answers.qualitative[section.id];
-            if (narrative && String(narrative).trim() !== '') {
-                rows.push({
-                    question_number: 0, // 0 menandakan baris jawaban naratif/kualitatif, bukan skor Likert
-                    question: `[${section.id}] ${(section.qualitative && section.qualitative.id) || 'Jawaban naratif'}`,
-                    answer: String(narrative),
-                    score: 0,
-                });
-            }
-        });
-
-        return rows;
+        return [
+            {
+                question_number: 0,
+                question: `Ringkasan skor — ${screeningType}`,
+                answer: riskLabel,
+                score: Math.round(overallPercent),
+            },
+        ];
     }
 
     /**
-     * Kirim hasil satu sesi screening ke backend.
+     * Kirim ringkasan skor satu sesi screening ke backend.
      * Dipanggil dari script.js setelah tombol "Hitung Hasil" diklik.
      * Gagal kirim ke server TIDAK menghentikan alur UI — hasil tetap
      * tampil & tersimpan di localStorage seperti biasa, hanya dicatat
      * di console sebagai peringatan.
+     *
+     * @param {string} screeningType
+     * @param {number} overallPercent
+     * @param {object} overallLevel
      */
-    async function submitScreening(screeningType, data, answers) {
-        const payload = buildPayload(screeningType, data, answers);
+    async function submitScreening(screeningType, overallPercent, overallLevel) {
+        const payload = buildPayload(screeningType, overallPercent, overallLevel);
         if (payload.length === 0) return;
 
         try {
@@ -96,7 +98,7 @@
                 return;
             }
 
-            console.log('[ATLAS] Hasil screening tersimpan ke server.');
+            console.log('[ATLAS] Skor ringkasan screening tersimpan ke server.');
         } catch (err) {
             console.error('[ATLAS] Error jaringan saat mengirim hasil screening:', err);
         }

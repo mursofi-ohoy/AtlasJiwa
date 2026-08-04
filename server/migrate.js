@@ -58,32 +58,13 @@ const RECONCILE = [
             ["last_login", "TIMESTAMPTZ"],
         ],
     },
-    {
-        table: 'agent_sessions',
-        columns: [
-            ["user_id", "UUID"],
-            ["screening_type", "STRING"],
-            ["overall_context_theme", "STRING"],
-            ["overall_context_risk_percent", "DECIMAL(5,2)"],
-            ["overall_context", "JSONB"],
-            ["started_at", "TIMESTAMPTZ NOT NULL DEFAULT now()"],
-            ["last_message_at", "TIMESTAMPTZ NOT NULL DEFAULT now()"],
-            ["is_crisis", "BOOL NOT NULL DEFAULT false"],
-        ],
-    },
-    {
-        table: 'agent_messages',
-        columns: [
-            ["session_id", "UUID"],
-            ["user_id", "UUID"],
-            ["role", "STRING NOT NULL DEFAULT 'user'"],
-            ["content", "STRING NOT NULL DEFAULT ''"],
-            ["nlp_context", "JSONB"],
-            ["risk_percent", "DECIMAL(5,2)"],
-            ["is_crisis", "BOOL NOT NULL DEFAULT false"],
-            ["created_at", "TIMESTAMPTZ NOT NULL DEFAULT now()"],
-        ],
-    },
+    // Catatan arsitektur: RECONCILE untuk agent_sessions/agent_messages
+    // (dulu dipakai fitur chat FastAPI+Qwen/Ollama) SUDAH DIHAPUS —
+    // fitur itu sekarang berjalan 100% di browser (ai-adapter.js) dan
+    // tidak lagi menyimpan apa pun ke database. Tabelnya sendiri masih
+    // didefinisikan di sql/schema.sql (tidak di-DROP di sini supaya
+    // migrasi tetap aman/idempotent bila masih ada data lama), tapi
+    // tidak ada kode server yang menulis ke sana lagi.
 ];
 
 /**

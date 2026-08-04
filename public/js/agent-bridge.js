@@ -1,119 +1,67 @@
 /* =========================================
    ATLAS JIWA — Agent Bridge (public/js/agent-bridge.js)
+   -----------------------------------------------------------
    Menjembatani hasil NLP JS (nlp-engine.js / summary-engine.js) ke
-   agen konsultasi Qwen (lewat proxy Node -> FastAPI -> Ollama, lihat
-   server/routes/agent.routes.js & backend/app/agent_api.py).
+   panel "Konsultasi Singkat dengan Atlas Jiwa AI" di script.js.
 
-   window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType)
+   PERUBAHAN ARSITEKTUR: versi sebelumnya memanggil Node proxy ->
+   FastAPI -> Qwen/Ollama (server/routes/agent.routes.js +
+   backend/app/agent_api.py). Kedua layanan itu SUDAH DIHAPUS.
+   Sekarang seluruh proses berjalan di browser lewat
+   window.AtlasAIAdapter (lihat ai-adapter.js) — tidak ada lagi
+   request jaringan ke server untuk fitur ini, dan tidak ada pesan
+   chat yang tersimpan di CockroachDB.
+
+   window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType, currentLang)
      Dipanggil SEKALI setelah hasil screening ditampilkan. Mengubah
-     bentuk overallSummary (dari AtlasSummaryEngine.buildOverallSummary)
-     menjadi ScreeningContext yang dimengerti backend, lalu membuka
-     sesi konsultasi. Mengembalikan { sessionId, response, isCrisis }.
+     overallSummary (dari AtlasSummaryEngine.buildOverallSummary,
+     sudah dihitung sisi klien) menjadi konteks ringkas, lalu minta
+     adapter AI aktif membuat interpretasi pembuka.
+     Mengembalikan { sessionId, response, isCrisis }.
 
-   window.AtlasAgent.sendMessage(sessionId, messageText)
+   window.AtlasAgent.sendMessage(sessionId, messageText, currentLang)
      Dipanggil setiap kali user mengirim pesan chat. Menjalankan
      window.AtlasNLPEngine.analyzeQualitative(messageText) DI SISI
-     KLIEN untuk pesan ini, mengirimkannya sebagai NarrativeContext
-     bersama pesannya. Mengembalikan { sessionId, response, isCrisis }.
+     KLIEN (di dalam adapter), lalu adapter AI aktif membalas.
+     Mengembalikan { sessionId, response, isCrisis }.
 
    URUTAN MUAT SCRIPT (wajib): file ini dimuat SETELAH
-   keyword-dictionary.js, nlp-engine.js, dan summary-engine.js,
-   supaya window.AtlasNLPEngine sudah tersedia saat sendMessage()
-   dipanggil.
+   keyword-dictionary.js, nlp-engine.js, summary-engine.js, DAN
+   ai-adapter.js (lihat public/screening.html).
    ========================================= */
 
 (function (global) {
     'use strict';
 
-    const API_BASE = '/api/agent';
+    function pickLang(biObj, lang) {
+        if (!biObj) return null;
+        return (lang === 'en' ? biObj.en : biObj.id) || biObj.id || biObj.en || null;
+    }
 
     /**
      * Meratakan overallSummary (bentuk lengkap dari
-     * AtlasSummaryEngine.buildOverallSummary) menjadi ScreeningContext
-     * ringkas sesuai app/models.py -> ScreeningContext di backend.
-     * Sengaja hanya mengambil field yang relevan untuk prompt Qwen —
-     * bukan seluruh objek mentah — supaya payload tetap ringkas dan
-     * tidak membocorkan detail yang tidak perlu (mis. kutipan mentah
-     * jawaban) ke luar dari alur yang sudah ada.
+     * AtlasSummaryEngine.buildOverallSummary) menjadi konteks ringkas
+     * untuk adapter AI — hanya field yang relevan, TANPA kutipan
+     * jawaban naratif mentah.
      */
-    function toScreeningContext(overallSummary, currentLang) {
-        if (!overallSummary) return null;
-        const pickLang = (biObj) => {
-            if (!biObj) return null;
-            return (currentLang === 'en' ? biObj.en : biObj.id) || biObj.id || biObj.en || null;
-        };
-
+    function buildContext(overallSummary, screeningType, currentLang) {
+        const lang = currentLang || 'id';
+        const compositeRisk = overallSummary && overallSummary.compositeRisk;
         return {
-            theme: pickLang(overallSummary.theme),
-            tags: (overallSummary.tags || []).map((t) => pickLang(t)).filter(Boolean),
-            composite_risk_percent:
-                overallSummary.compositeRisk && typeof overallSummary.compositeRisk.score === 'number'
-                    ? overallSummary.compositeRisk.score
-                    : null,
-            composite_risk_band:
-                overallSummary.compositeRisk && overallSummary.compositeRisk.band
-                    ? pickLang(overallSummary.compositeRisk.band)
-                    : null,
-            addiction_components: (overallSummary.addictionComponents || []).map((c) => ({
-                key: c.key,
-                label: pickLang(c.label),
-                present: !!c.present,
-                score: c.score || 0,
-            })),
-            axis_totals: overallSummary.axisTotals || {},
-            synergy_pairs: (overallSummary.synergyPairs || []).map((p) => pickLang(p)).filter(Boolean),
-            reliability_avg:
-                typeof overallSummary.reliabilityAvg === 'number' ? overallSummary.reliabilityAvg : null,
+            screeningType: screeningType || '-',
+            score: compositeRisk && typeof compositeRisk.score === 'number' ? compositeRisk.score : null,
+            riskLevel: compositeRisk && compositeRisk.band ? pickLang(compositeRisk.band, lang) : null,
+            theme: pickLang(overallSummary && overallSummary.theme, lang),
+            interpretation: pickLang(overallSummary && overallSummary.interpretation, lang),
+            tags: ((overallSummary && overallSummary.tags) || []).map((t) => pickLang(t, lang)).filter(Boolean),
+            lang,
         };
     }
 
-    /**
-     * Meratakan hasil window.AtlasNLPEngine.analyzeQualitative(text)
-     * menjadi NarrativeContext ringkas sesuai app/models.py di backend.
-     */
-    function toNarrativeContext(analysis, currentLang) {
-        if (!analysis) return null;
-        const pickLang = (biObj) => {
-            if (!biObj) return null;
-            return (currentLang === 'en' ? biObj.en : biObj.id) || biObj.id || biObj.en || null;
-        };
-
-        const axes = {};
-        if (analysis.axes) {
-            Object.keys(analysis.axes).forEach((k) => {
-                axes[k] = analysis.axes[k].score || 0;
-            });
-        }
-
-        return {
-            theme: pickLang(analysis.theme),
-            tags: (analysis.tags || []).map((t) => pickLang(t)).filter(Boolean),
-            axes,
-            qualitative_risk_percent:
-                analysis.meta && analysis.meta.qualitativeRisk
-                    ? analysis.meta.qualitativeRisk.percent
-                    : null,
-            reliability: analysis.meta && typeof analysis.meta.reliability === 'number'
-                ? analysis.meta.reliability
-                : null,
-        };
-    }
-
-    async function postJson(path, body) {
-        const res = await fetch(`${API_BASE}${path}`, {
-            method: 'POST',
-            credentials: 'include', // wajib: sesi diverifikasi lewat cookie httpOnly di Node
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const err = new Error(data.error || `Permintaan gagal (${res.status}).`);
-            err.status = res.status;
-            throw err;
-        }
-        return data;
+    function makeSessionId() {
+        return global.crypto && typeof global.crypto.randomUUID === 'function'
+            ? global.crypto.randomUUID()
+            : `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
     /**
@@ -122,41 +70,26 @@
      * @param {string} [currentLang]   'id' | 'en', default 'id'
      */
     async function initSessionFromSummary(overallSummary, screeningType, currentLang) {
-        const context = toScreeningContext(overallSummary, currentLang || 'id');
-        const data = await postJson('/session/init', {
-            screening_type: screeningType || null,
-            context,
-        });
-        return {
-            sessionId: data.session_id,
-            response: data.response,
-            isCrisis: !!data.is_crisis,
-        };
+        const adapter = global.AtlasAIAdapter.getActiveAdapter();
+        const ctx = buildContext(overallSummary, screeningType, currentLang);
+        const response = await adapter.interpret(ctx);
+        return { sessionId: makeSessionId(), response, isCrisis: false };
     }
 
     /**
-     * @param {string|null} sessionId  null -> backend akan membuat sesi baru (stateless fallback)
+     * @param {string|null} sessionId  dipertahankan hanya untuk konsistensi UI (tidak ada state server)
      * @param {string} messageText
      * @param {string} [currentLang]
      */
     async function sendMessage(sessionId, messageText, currentLang) {
-        let context = null;
-        if (global.AtlasNLPEngine && typeof global.AtlasNLPEngine.analyzeQualitative === 'function') {
-            const analysis = global.AtlasNLPEngine.analyzeQualitative(messageText);
-            context = toNarrativeContext(analysis, currentLang || 'id');
-        }
-
-        const data = await postJson('/consult', {
-            message: messageText,
-            session_id: sessionId || null,
-            context,
-        });
+        const adapter = global.AtlasAIAdapter.getActiveAdapter();
+        const result = await adapter.reply(messageText, { lang: currentLang || 'id' });
         return {
-            sessionId: data.session_id,
-            response: data.response,
-            isCrisis: !!data.is_crisis,
+            sessionId: sessionId || makeSessionId(),
+            response: result.text,
+            isCrisis: !!result.isCrisis,
         };
     }
 
-    global.AtlasAgent = { initSessionFromSummary, sendMessage, toScreeningContext, toNarrativeContext };
+    global.AtlasAgent = { initSessionFromSummary, sendMessage };
 })(window);

@@ -4,11 +4,18 @@ Platform edukasi & screening psikologi kendali impuls/adiksi.
 Frontend statis (HTML/CSS/Vanilla JS) + backend Node.js/Express +
 PostgreSQL (CockroachDB).
 
+**Arsitektur (per refactor terbaru):** backend HANYA menangani
+login/register dan menyimpan **skor kuantitatif** hasil screening.
+Seluruh analisis NLP, ringkasan, dan "konsultasi AI" berjalan **di
+browser** — tidak ada jawaban naratif, prompt, atau ringkasan AI yang
+pernah dikirim ke server maupun disimpan di database. Backend kedua
+(FastAPI + Ollama/Qwen) yang dulu ada di `backend/` sudah dihapus.
+
 ## Struktur Project
 
 ```
 atlas-jiwa/
-├── .env.example                 <- config Node (lihat juga backend/.env.example)
+├── .env.example                 <- config Node
 ├── package.json
 ├── public/                 <- disajikan langsung oleh Express (static)
 │   ├── login.html          <- form Login & Register (tab)
@@ -20,7 +27,9 @@ atlas-jiwa/
 │       ├── keyword-dictionary.js  <- kamus axis NLP kualitatif
 │       ├── nlp-engine.js          <- analisis per-jawaban naratif
 │       ├── summary-engine.js      <- ringkasan lintas-jawaban + composite risk
-│       ├── agent-bridge.js        <- jembatan ke konsultasi AI (§8)
+│       ├── ai-adapter.js          <- lapisan AI client-side, lihat §8 (baru)
+│       ├── agent-bridge.js        <- jembatan ke ai-adapter.js (§8)
+│       ├── screening-submit.js    <- kirim RINGKASAN SKOR (bukan narasi) ke backend
 │       └── script.js              <- UI screening & render hasil
 ├── server/
 │   ├── server.js           <- entry point Express
@@ -30,23 +39,9 @@ atlas-jiwa/
 │   └── routes/
 │       ├── auth.routes.js
 │       ├── users.routes.js
-│       ├── screening.routes.js
-│       └── agent.routes.js        <- proxy ke backend/ FastAPI (§8)
-├── backend/                 <- layanan kedua: FastAPI + Ollama/Qwen (§8)
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── app/
-│       ├── main.py
-│       ├── config.py
-│       ├── auth.py                <- verifikasi JWT yang sama dengan Node
-│       ├── database.py            <- pool psycopg + helper agent_sessions/messages
-│       ├── models.py
-│       ├── risk_engine.py         <- deteksi krisis deterministik
-│       ├── prompt_builder.py      <- susun prompt Qwen dari konteks NLP
-│       ├── ollama_client.py
-│       └── agent_api.py           <- POST /api/v1/agent/session/init, /consult
+│       └── screening.routes.js
 └── sql/
-    └── schema.sql           <- DDL semua tabel (users, screening_*, agent_*, dst.)
+    └── schema.sql           <- DDL semua tabel (users, screening_*, dst.)
 ```
 
 ## 1. Instalasi
@@ -66,6 +61,11 @@ string-nya, tempel ke `DATABASE_URL` di `.env`. Lalu jalankan skema:
 psql "$DATABASE_URL" -f sql/schema.sql
 ```
 
+CockroachDB adalah satu-satunya database AtlasJiwa: menyimpan akun
+pengguna (`users`) untuk login/register, dan skor screening kuantitatif
+(`screening_results`). Tidak menyimpan jawaban naratif, hasil NLP,
+ringkasan AI, prompt AI, maupun embedding.
+
 ## 3. Jalankan Server
 
 ```bash
@@ -75,28 +75,9 @@ npm run dev
 ```
 
 Buka `http://localhost:3000` — otomatis diarahkan ke `login.html`.
-
-### 2.1 Menjalankan Backend Konsultasi AI (opsional, untuk fitur §8)
-
-Fitur "Konsultasi Singkat dengan Atlas Jiwa AI" di halaman hasil
-screening butuh dua layanan tambahan berjalan bersamaan dengan Node:
-
-```bash
-# 1) Ollama harus sudah terinstal & modelnya sudah di-pull
-ollama pull qwen3:4b
-ollama serve                 # default di 127.0.0.1:11434
-
-# 2) FastAPI (di terminal terpisah)
-cd backend
-python -m venv venv && source venv/bin/activate   # atau venv\Scripts\activate di Windows
-pip install -r requirements.txt
-cp .env.example .env         # isi DATABASE_URL & JWT_SECRET (SAMA dengan .env Node)
-uvicorn app.main:app --reload --port 8000
-```
-
-Jika Ollama/FastAPI tidak berjalan, halaman hasil screening tetap
-berfungsi normal (skor & analisis naratif tetap tampil) — panel chat
-hanya akan menampilkan pesan "Tidak tersedia saat ini".
+Tidak ada layanan tambahan yang perlu dijalankan — fitur "Konsultasi
+Singkat dengan Atlas Jiwa AI" berjalan sepenuhnya di browser lewat
+`public/js/ai-adapter.js` (lihat §8), tanpa Ollama/FastAPI.
 
 ## 4. Membuat Akun Admin Pertama
 
@@ -126,6 +107,9 @@ membuat role `user`). Cara membuat admin pertama:
   oleh middleware `requireAdmin` di server — jadi proteksi TIDAK hanya
   mengandalkan frontend.
 
+Alur register → hash password (bcrypt) → simpan ke `users` di
+CockroachDB → login → verifikasi kredensial → JWT → cookie httpOnly.
+
 ## 6. Catatan Keamanan
 
 - Password di-hash dengan **bcrypt** (12 rounds) — tidak pernah
@@ -144,6 +128,9 @@ membuat role `user`). Cara membuat admin pertama:
 - `DATABASE_URL` HANYA pernah dibaca oleh `server/db.js` lewat
   `process.env` — tidak pernah dikirim ke frontend dalam bentuk
   apa pun (cek: `grep -r DATABASE_URL public/` seharusnya kosong).
+- **Privacy by design:** backend tidak melakukan NLP/inferensi AI
+  apa pun, dan tidak ada endpoint yang menerima teks naratif pengguna
+  — lihat §8.
 
 ## 7. Ringkasan Endpoint API
 
@@ -157,64 +144,54 @@ membuat role `user`). Cara membuat admin pertama:
 | PUT    | /api/users/:id                 | admin       | Edit user                            |
 | DELETE | /api/users/:id                 | admin       | Hapus user                           |
 | GET    | /api/users/stats/summary        | admin       | Ringkasan dashboard                  |
-| POST   | /api/screening                   | login       | Simpan hasil screening               |
+| POST   | /api/screening                   | login       | Simpan RINGKASAN SKOR screening (bukan jawaban naratif) |
 | GET    | /api/screening/:userid            | login/admin | Lihat hasil (milik sendiri/semua)    |
 | GET    | /api/screening                     | admin       | Semua hasil (untuk tabel & export)   |
-| POST   | /api/agent/session/init            | login       | Buka sesi konsultasi AI dari ringkasan screening (proxy ke FastAPI) |
-| POST   | /api/agent/consult                  | login       | Kirim pesan chat ke Atlas Jiwa AI (proxy ke FastAPI)               |
 
-## 8. Integrasi Konsultasi AI (JS NLP → FastAPI → Qwen/Ollama)
+Tidak ada lagi endpoint `/api/agent/*` — backend tidak melakukan
+NLP/inferensi AI sama sekali.
 
-Selain jalur Node/PostgreSQL di atas, project ini juga punya backend
-kedua di `backend/` (FastAPI + Ollama/Qwen) untuk fitur konsultasi AI
-singkat di halaman hasil screening. Alurnya:
+## 8. Analisis & Konsultasi AI (100% Client-Side)
+
+Seluruh analisis NLP, ringkasan lintas-jawaban, dan "konsultasi AI"
+berjalan di browser. Tidak ada request jaringan ke server untuk fitur
+ini, dan tidak ada isi pesan/narasi yang pernah disimpan di database.
 
 ```
-public/js/nlp-engine.js + summary-engine.js   (analisis kualitatif, di browser)
-            │  (hasil analisis diratakan jadi payload ringkas)
+public/js/keyword-dictionary.js + nlp-engine.js + summary-engine.js
+            │  (analisis kualitatif & skor komposit, 100% di browser)
             ▼
-public/js/agent-bridge.js                     (window.AtlasAgent)
-            │  fetch('/api/agent/...', { credentials: 'include' })
+public/js/ai-adapter.js        (window.AtlasAIAdapter)
+            │  interpret(context) / reply(message, context)
+            │  context HANYA berisi data terstruktur:
+            │    { score, riskLevel, screeningType, theme, tags, ... }
+            │  TIDAK PERNAH membaca database secara langsung
             ▼
-server/routes/agent.routes.js                 (proxy Node, requireAuth)
-            │  forward + Authorization: Bearer <JWT re-signed>
-            ▼
-backend/app/agent_api.py  (FastAPI)
-            │  risk_engine.py (deteksi krisis) + prompt_builder.py (susun prompt)
-            ▼
-backend/app/ollama_client.py  →  Ollama (model qwen3:4b)
+public/js/agent-bridge.js      (window.AtlasAgent — dipanggil script.js)
 ```
 
-- **Kenapa lewat proxy Node, bukan browser → FastAPI langsung?** Supaya
-  arsitektur auth yang sudah ada (cookie httpOnly `atlas_session`,
-  lihat §5) tetap satu-satunya jalur yang disentuh browser. FastAPI
-  tidak pernah diekspos ke publik; ia memverifikasi ulang JWT yang
-  sama (`JWT_SECRET` **harus identik** di `.env` root & `backend/.env`
-  — lihat `.env.example` di masing-masing folder).
-- **Dua endpoint:** `POST /api/agent/session/init` (dipanggil sekali
-  setelah screening selesai, membawa ringkasan dari
-  `AtlasSummaryEngine.buildOverallSummary()`) dan
-  `POST /api/agent/consult` (dipanggil tiap pesan chat, membawa
-  analisis `AtlasNLPEngine.analyzeQualitative()` untuk pesan itu).
-- **Riwayat & skor risiko** tiap sesi/pesan disimpan ke tabel baru
-  `agent_sessions` / `agent_messages` (lihat `sql/schema.sql`).
-- **Lapisan keamanan tambahan:** `backend/app/risk_engine.py`
-  mendeteksi indikasi krisis secara deterministik (bukan hanya
-  mengandalkan interpretasi LLM) dari skor risiko komposit sisi klien
-  maupun pola frasa eksplisit, lalu menyisipkan instruksi prioritas
-  rujukan darurat ke prompt Qwen — konsisten dengan disclaimer di §
-  screening.html bahwa ini bukan pengganti diagnosis profesional.
-
-**File yang diubah/ditambah untuk fitur ini:** `public/js/script.js`
-(menambahkan panel chat di halaman hasil, TIDAK mengubah logika
-skor/kamus NLP yang sudah ada), `public/css/style.css` (menambah gaya
-panel chat di akhir file), `public/js/agent-bridge.js` (baru),
-`server/routes/agent.routes.js` (baru), seluruh isi `backend/app/`,
-dan `sql/schema.sql` (menambah tabel `agent_sessions`,
-`agent_messages`, serta `screening_results` yang sebelumnya dipakai
-kode Node namun belum terdefinisi di file ini).
+- **Pola adapter yang mudah diganti:** `ai-adapter.js` mendefinisikan
+  `AI_CONFIG.provider` dan sebuah registry adapter (`local`, `qwen`,
+  `gemini`, `openai`, `claude`). Default-nya `local` — heuristik
+  berbasis aturan dari `summary-engine.js`, tanpa API key/jaringan
+  sama sekali (aman untuk demo). Adapter lain sengaja berupa stub;
+  isi implementasi & API key Anda sendiri di sana untuk mengaktifkan
+  model eksternal, tanpa perlu mengubah `agent-bridge.js` atau
+  `script.js`.
+- **Model hanya menerima data kuantitatif/terstruktur** (skor,
+  risk band, tema, tag) — bukan kutipan jawaban naratif mentah dari
+  database, karena memang tidak pernah dikirim ke server.
+- **Deteksi krisis tetap deterministik** (bukan hanya mengandalkan
+  interpretasi model AI): `ai-adapter.js` memindai pola frasa krisis
+  eksplisit dan ambang skor risiko komposit, lalu menyisipkan rujukan
+  layanan darurat — konsisten dengan disclaimer di halaman hasil
+  bahwa ini bukan pengganti diagnosis profesional.
+- **Skor yang dikirim ke server** (`POST /api/screening`, lihat §7)
+  dibentuk oleh `screening-submit.js` dari `overallPercent` +
+  `overallLevel` yang sudah dihitung `script.js` — satu baris
+  ringkasan per sesi, tanpa jawaban naratif.
 
 `public/js/nlp-engine.js`, `summary-engine.js`, dan
-`keyword-dictionary.js` **tidak diubah isinya** oleh perubahan ini —
-`agent-bridge.js` hanya memanggil fungsi publiknya
+`keyword-dictionary.js` tidak berubah oleh refactor ini —
+`ai-adapter.js`/`agent-bridge.js` hanya memanggil fungsi publiknya
 (`analyzeQualitative`, `buildOverallSummary`) dari luar.

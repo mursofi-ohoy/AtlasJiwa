@@ -19,11 +19,11 @@
    hashing password + JWT sesi (lihat src/lib/crypto.js). Tidak ada
    lagi fetch() keluar ke Railway untuk /api/auth atau /api/screening.
 
-   Fitur "Konsultasi AI" (/api/agent/*) tetap opsional: kalau env
-   FASTAPI_BASE_URL di-set (mengarah ke backend FastAPI+Ollama kamu
-   sendiri yang bisa diakses publik), Worker akan proxy ke situ.
-   Kalau tidak di-set, Worker membalas pesan yang jelas alih-alih 404
-   diam-diam — supaya UI tidak "menggantung" tanpa penjelasan.
+   Fitur "Konsultasi AI" TIDAK LAGI diproxy oleh Worker ini — berjalan
+   100% di browser lewat public/js/ai-adapter.js (lihat README.md §8).
+   Worker ini hanya menangani /api/auth/* dan /api/screening (skor
+   kuantitatif saja, tanpa jawaban naratif) serta /api/users/* untuk
+   admin.
    ========================================= */
 
 import { hashPassword, comparePassword, signToken, verifyToken } from './lib/crypto.js';
@@ -294,46 +294,11 @@ async function handleUsersStats(request, env) {
 }
 
 // ---------------------------------------------------------
-// AGENT (opsional): proxy ke FastAPI kalau env FASTAPI_BASE_URL di-set
-// ---------------------------------------------------------
-async function handleAgentProxy(request, env, path) {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return json({ error: 'Anda belum login.' }, 401);
-
-    if (!env.FASTAPI_BASE_URL) {
-        return json(
-            {
-                error:
-                    'Fitur Konsultasi AI belum dikonfigurasi untuk deployment Cloudflare ini. Set env FASTAPI_BASE_URL ke URL backend FastAPI kamu (wrangler secret put FASTAPI_BASE_URL) agar fitur ini aktif.',
-            },
-            503
-        );
-    }
-
-    const body = await request.json().catch(() => ({}));
-    const secret = requireEnv(env, 'JWT_SECRET');
-    const internalToken = await signToken({ id: authUser.id, username: authUser.username, role: authUser.role }, secret, 120);
-
-    let upstream;
-    try {
-        upstream = await fetch(`${env.FASTAPI_BASE_URL}${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${internalToken}` },
-            body: JSON.stringify(body),
-        });
-    } catch (err) {
-        return json({ error: 'Layanan konsultasi AI sedang tidak dapat dihubungi. Coba lagi beberapa saat lagi.' }, 502);
-    }
-
-    const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-        return json({ error: data.detail || data.error || 'Layanan konsultasi AI menolak permintaan.' }, upstream.status);
-    }
-    return json(data);
-}
-
-// ---------------------------------------------------------
 // ROUTER
+// Catatan arsitektur: proxy /api/agent/* ke FastAPI (opsional, via
+// FASTAPI_BASE_URL) SUDAH DIHAPUS. Fitur "Konsultasi AI" sekarang
+// berjalan 100% di browser lewat public/js/ai-adapter.js — Worker
+// ini tidak perlu tahu apa-apa soal fitur itu lagi.
 // ---------------------------------------------------------
 async function handleApi(request, env) {
     const url = new URL(request.url);
@@ -355,16 +320,6 @@ async function handleApi(request, env) {
 
         if (pathname === '/api/users' && method === 'GET') return await handleUsersList(request, env);
         if (pathname === '/api/users/stats/summary' && method === 'GET') return await handleUsersStats(request, env);
-
-        if (pathname === '/api/agent/session/init' && method === 'POST') {
-            return await handleAgentProxy(request, env, '/api/v1/agent/session/init');
-        }
-        if (pathname === '/api/agent/consult' && method === 'POST') {
-            return await handleAgentProxy(request, env, '/api/v1/agent/consult');
-        }
-        if (pathname === '/api/analysis/preclinical' && method === 'POST') {
-            return await handleAgentProxy(request, env, '/api/v1/analysis/preclinical');
-        }
 
         return json({ error: 'Endpoint tidak ditemukan.' }, 404);
     } catch (err) {

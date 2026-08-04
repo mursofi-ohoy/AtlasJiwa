@@ -15,10 +15,10 @@ binding = "ASSETS"
 #   2) wrangler d1 execute atlasjiwa-db --remote --file=./sql/d1_schema.sql
 #   3) wrangler secret put JWT_SECRET
 #      -> isi dengan string acak panjang (mis. hasil `openssl rand -hex 32`)
-#   4) (opsional) wrangler secret put FASTAPI_BASE_URL
-#      -> hanya jika fitur Konsultasi AI (FastAPI+Ollama) sudah kamu
-#         hosting di tempat yang bisa diakses publik
-#   5) wrangler deploy
+#   4) wrangler deploy
+#
+# Fitur "Konsultasi AI" tidak butuh secret/konfigurasi tambahan apa pun
+# di Worker ini -- berjalan 100% di browser (public/js/ai-adapter.js).
 # ---------------------------------------------------------
 [[d1_databases]]
 binding = "DB"
