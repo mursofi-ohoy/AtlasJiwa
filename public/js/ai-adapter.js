@@ -15,6 +15,15 @@ Alur:
 Adapter TIDAK PERNAH membaca jawaban naratif dari database.
 Konteks yang dikirim ke Gemini hanya berasal dari ringkasan hasil
 screening yang sudah dihitung di sisi klien.
+
+Catatan kompatibilitas model (backend memakai Gemini 3.5 Flash-Lite):
+- File ini tidak menyebut nama model sama sekali — pemilihan model
+  murni urusan backend (`GEMINI_MODEL` di gemini.service.js).
+- Batas history di bawah (GEMINI_MAX_HISTORY_TURNS/CHARS) sudah jauh
+  di bawah context window model manapun, jadi tidak perlu diperkecil
+  demi "kompatibilitas". Yang benar-benar relevan untuk model
+  rendah-latensi seperti ini adalah timeout klien yang realistis —
+  lihat GEMINI_REQUEST_TIMEOUT_MS di bawah.
 ========================================= */
 (function (global) {
 'use strict';
@@ -85,6 +94,80 @@ function pick(lang, idText, enText) {
     return (lang === 'en' ? enText : idText) || idText || enText || '';
 }
 
+// ---------- NLP integration: satu jalur aman, dipakai ulang di semua tempat ----------
+// Sebelumnya ada DUA salinan logika "panggil AtlasNLPEngine lalu bentuk narrativeContext"
+// yang sedikit berbeda (satu aman/try-catch di buildNarrativeContextForMessage, satu lagi
+// TIDAK aman & TIDAK konsisten menangani tag string vs objek di dalam LocalHeuristicAdapter.reply).
+// Itu bug: LocalHeuristicAdapter adalah fallback TERAKHIR dan wajib selalu jalan meski NLP
+// engine error, dan tag yang salah dipetakan bisa membuat deteksi urgensi krisis senyap gagal.
+// Sekarang disatukan jadi dua fungsi kecil yang dipakai ulang di semua adapter.
+
+/**
+ * Panggil AtlasNLPEngine.analyzeQualitative() secara aman.
+ * Selalu mengembalikan hasil analisis atau null — tidak pernah throw.
+ */
+function runNLPAnalysis(message) {
+    const engine = global.AtlasNLPEngine;
+
+    if (!engine || typeof engine.analyzeQualitative !== 'function') {
+        return null;
+    }
+
+    try {
+        const result = engine.analyzeQualitative(message);
+
+        if (result && typeof result.then === 'function') {
+            // Kontrak kita adalah sinkron. Kalau suatu saat engine berubah jadi async,
+            // lebih aman diabaikan (fallback ke null) daripada diam-diam salah dipakai
+            // sebagai objek analysis.
+            console.warn('[ATLAS][NLP] analyzeQualitative() mengembalikan Promise, diabaikan (diharapkan sinkron).');
+            return null;
+        }
+
+        return result || null;
+    } catch (err) {
+        console.warn('[ATLAS][NLP] analyzeQualitative() gagal:', err && err.message);
+        return null;
+    }
+}
+
+/**
+ * Bentuk narrativeContext ringkas (untuk assessMessageRisk) dari hasil analysis mentah.
+ * Menangani tag berupa string ATAUPUN objek {id, en} secara konsisten.
+ */
+function narrativeContextFromAnalysis(analysis, lang) {
+    if (!analysis) {
+        return null;
+    }
+
+    return {
+        qualitativeRiskPercent: analysis.meta && analysis.meta.qualitativeRisk && typeof analysis.meta.qualitativeRisk.percent === 'number'
+            ? analysis.meta.qualitativeRisk.percent
+            : null,
+        tags: (analysis.tags || [])
+            .map((t) => {
+                if (typeof t === 'string') return t;
+                return pick(lang, t && t.id, t && t.en);
+            })
+            .filter(Boolean),
+        axes: analysis.axes
+            ? Object.keys(analysis.axes).reduce((acc, k) => {
+                  acc[k] = analysis.axes[k].score || 0;
+                  return acc;
+              }, {})
+            : {},
+    };
+}
+
+/**
+ * Membangun narrativeContext dari pesan chat menggunakan NLP lokal.
+ * Dipakai oleh HybridAdapter untuk memperketat deteksi krisis sebelum
+ * pesan dikirim ke Gemini.
+ */
+function buildNarrativeContextForMessage(message, lang) {
+    return narrativeContextFromAnalysis(runNLPAnalysis(message), lang);
+}
+
 // ---------- Adapter lokal: heuristik berbasis Summary Engine ----------
 const LocalHeuristicAdapter = {
     id: 'local',
@@ -116,27 +199,19 @@ const LocalHeuristicAdapter = {
         return parts.filter(Boolean).join(' ');
     },
 
-    // message: teks dari kolom chat. ctx: { lang }
+    // message: teks dari kolom chat. ctx: { lang, ...  __precomputedAnalysis? }
+    // ctx.__precomputedAnalysis (opsional, internal): kalau pemanggil (mis. HybridAdapter)
+    // sudah menjalankan runNLPAnalysis() untuk pesan yang sama, hasilnya bisa diteruskan
+    // di sini supaya tidak dihitung ulang. Kalau tidak ada, dihitung sendiri (self-sufficient
+    // saat adapter ini dipakai langsung/berdiri sendiri, mis. provider === 'local').
     async reply(message, ctx) {
         const lang = ctx.lang || 'id';
 
-        const analysis = global.AtlasNLPEngine && typeof global.AtlasNLPEngine.analyzeQualitative === 'function'
-            ? global.AtlasNLPEngine.analyzeQualitative(message)
-            : null;
+        const analysis = ctx && Object.prototype.hasOwnProperty.call(ctx, '__precomputedAnalysis')
+            ? ctx.__precomputedAnalysis
+            : runNLPAnalysis(message);
 
-        const narrativeContext = analysis
-            ? {
-                  qualitativeRiskPercent: analysis.meta && analysis.meta.qualitativeRisk ? analysis.meta.qualitativeRisk.percent : null,
-                  tags: (analysis.tags || []).map((t) => pick(lang, t.id, t.en)),
-                  axes: analysis.axes
-                      ? Object.keys(analysis.axes).reduce((acc, k) => {
-                            acc[k] = analysis.axes[k].score || 0;
-                            return acc;
-                        }, {})
-                      : {},
-              }
-            : null;
-
+        const narrativeContext = narrativeContextFromAnalysis(analysis, lang);
         const risk = assessMessageRisk(message, narrativeContext);
 
         if (risk.isCrisis) {
@@ -173,6 +248,30 @@ const LocalHeuristicAdapter = {
     },
 };
 
+/**
+ * Jaring pengaman terakhir di atas LocalHeuristicAdapter.reply().
+ * Semua pemanggilan "local sebagai fallback" (bukan pemanggilan langsung saat
+ * provider === 'local') lewat sini, supaya kalaupun local heuristic gagal karena
+ * sebab tak terduga, chat tetap dapat balasan (statis, tanpa dependency NLP)
+ * alih-alih Promise reject tanpa penanganan.
+ */
+async function safeLocalReply(message, ctx) {
+    try {
+        return await LocalHeuristicAdapter.reply(message, ctx || {});
+    } catch (err) {
+        console.error('[ATLAS][Local] LocalHeuristicAdapter.reply gagal, memakai respons darurat statis:', err && err.message);
+
+        return {
+            isCrisis: false,
+            text: pick(
+                (ctx && ctx.lang) || 'id',
+                'Maaf, sistem sedang mengalami gangguan. Silakan coba lagi sebentar lagi.',
+                'Sorry, the system is experiencing an issue. Please try again in a moment.'
+            ),
+        };
+    }
+}
+
 // ---------- Adapter eksternal (belum diaktifkan) ----------
 function externalAdapterStub(id, label) {
     return {
@@ -197,13 +296,43 @@ const GEMINI_FALLBACK_CODES = new Set([
     'bad_response',
 ]);
 
-const GEMINI_REQUEST_TIMEOUT_MS = 1200000;
+// Timeout klien untuk /api/ai/consult.
+//
+// PENTING: sebelumnya nilai ini adalah 1.200.000 ms (20 MENIT) — kemungkinan
+// besar salah ketik dan berbahaya: kalau backend/koneksi macet, chat akan
+// terlihat "membeku" sampai 20 menit sebelum akhirnya fallback ke local.
+//
+// Nilai yang benar harus sedikit di atas worst-case waktu backend, yaitu:
+//   GEMINI_TIMEOUT_MS backend (default 10.000ms) + 1x retry (~10.000ms)
+//   + jeda retry (~0.5-1s) ≈ ~20.5 detik.
+// 30 detik memberi buffer wajar di atas itu untuk variasi latensi jaringan,
+// sekaligus tetap masuk akal untuk model rendah-latensi seperti Flash-Lite
+// (yang secara desain seharusnya jauh lebih cepat dari batas ini).
+const GEMINI_REQUEST_TIMEOUT_MS = 30000;
+
 const GEMINI_MAX_HISTORY_TURNS = 5;
 const GEMINI_MAX_HISTORY_ITEM_CHARS = 2000;
 const GEMINI_MAX_HISTORY_CHARS = 6000;
 const GEMINI_MAX_SCREENING_CONTEXT_STRING_CHARS = 3000;
 
-async function postToGeminiConsult(payload) {
+// ---------- Pencegahan duplicate request ----------
+// Kalau reply() dipanggil dua kali dengan payload yang identik sementara
+// request pertama masih berjalan (mis. double-click tombol kirim, atau
+// event handler yang ke-trigger dua kali), request kedua akan menunggu
+// promise yang sama alih-alih menembak /api/ai/consult lagi.
+// Map dibersihkan otomatis lewat .finally() begitu request selesai
+// (berhasil ataupun gagal) — tidak ada entri yang tertinggal (no memory leak).
+const pendingGeminiRequests = new Map();
+
+function buildRequestDedupeKey(payload) {
+    return JSON.stringify({
+        topic: payload.topic,
+        message: payload.message,
+        historyLen: Array.isArray(payload.history) ? payload.history.length : 0,
+    });
+}
+
+async function doPostToGeminiConsult(payload) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
 
@@ -218,8 +347,6 @@ async function postToGeminiConsult(payload) {
             signal: controller.signal,
         });
     } catch (err) {
-        clearTimeout(timer);
-
         if (err && err.name === 'AbortError') {
             const e = new Error('Permintaan ke Gemini melebihi batas waktu.');
             e.code = 'timeout';
@@ -229,9 +356,9 @@ async function postToGeminiConsult(payload) {
         const e = new Error('Gagal menghubungi server (jaringan).');
         e.code = 'network';
         throw e;
+    } finally {
+        clearTimeout(timer);
     }
-
-    clearTimeout(timer);
 
     if (!res.ok) {
         let code = 'server_error';
@@ -243,12 +370,23 @@ async function postToGeminiConsult(payload) {
             // respons bukan JSON, biarkan code default
         }
 
+        console.warn(`[ATLAS][Gemini] Request gagal: HTTP ${res.status}, code=${code}`);
+
         const e = new Error(`Gemini consult gagal (HTTP ${res.status}).`);
         e.code = code;
+        e.httpStatus = res.status;
         throw e;
     }
 
-    const data = await res.json();
+    let data;
+
+    try {
+        data = await res.json();
+    } catch (err) {
+        const e = new Error('Respons server tidak valid (bukan JSON).');
+        e.code = 'bad_response';
+        throw e;
+    }
 
     if (!data || typeof data.reply !== 'string') {
         const e = new Error('Respons Gemini tidak terduga.');
@@ -259,47 +397,21 @@ async function postToGeminiConsult(payload) {
     return data.reply;
 }
 
-/**
- * Membangun narrativeContext dari pesan chat menggunakan NLP lokal.
- * Dipakai oleh HybridAdapter untuk memperketat deteksi krisis sebelum
- * pesan dikirim ke Gemini.
- */
-function buildNarrativeContextForMessage(message, lang) {
-    const engine = global.AtlasNLPEngine;
+async function postToGeminiConsult(payload) {
+    const dedupeKey = buildRequestDedupeKey(payload);
+    const existing = pendingGeminiRequests.get(dedupeKey);
 
-    if (!engine || typeof engine.analyzeQualitative !== 'function') {
-        return null;
+    if (existing) {
+        return existing;
     }
 
-    let analysis = null;
+    const requestPromise = doPostToGeminiConsult(payload).finally(() => {
+        pendingGeminiRequests.delete(dedupeKey);
+    });
 
-    try {
-        analysis = engine.analyzeQualitative(message);
-    } catch (_) {
-        return null;
-    }
+    pendingGeminiRequests.set(dedupeKey, requestPromise);
 
-    if (!analysis) {
-        return null;
-    }
-
-    return {
-        qualitativeRiskPercent: analysis.meta && analysis.meta.qualitativeRisk && typeof analysis.meta.qualitativeRisk.percent === 'number'
-            ? analysis.meta.qualitativeRisk.percent
-            : null,
-        tags: (analysis.tags || [])
-            .map((t) => {
-                if (typeof t === 'string') return t;
-                return pick(lang, t && t.id, t && t.en);
-            })
-            .filter(Boolean),
-        axes: analysis.axes
-            ? Object.keys(analysis.axes).reduce((acc, k) => {
-                  acc[k] = analysis.axes[k].score || 0;
-                  return acc;
-              }, {})
-            : {},
-    };
+    return requestPromise;
 }
 
 /**
@@ -421,6 +533,11 @@ function sanitizeScreeningContextForGemini(screeningContext) {
  * Pada arsitektur hybrid:
  * - interpret() TIDAK memanggil Gemini.
  * - reply() memanggil Gemini, lalu fallback ke local bila gagal.
+ *
+ * Tidak ada retry di level ini secara sengaja: gemini.service.js di backend
+ * sudah melakukan retry untuk error transient (network/server_error).
+ * Menambah retry lagi di sini berisiko melipatgandakan jumlah request
+ * (retry backend × retry frontend) tanpa manfaat nyata.
  */
 async function geminiConsultWithFallback(kind, message, ctx) {
     const safeCtx = ctx || {};
@@ -434,7 +551,7 @@ async function geminiConsultWithFallback(kind, message, ctx) {
 
     // Pesan kosong tidak perlu dikirim ke Gemini.
     if (!normalizedMessage) {
-        return LocalHeuristicAdapter.reply(normalizedMessage, safeCtx);
+        return safeLocalReply(normalizedMessage, safeCtx);
     }
 
     try {
@@ -470,9 +587,10 @@ async function geminiConsultWithFallback(kind, message, ctx) {
             throw err;
         }
 
-        console.warn(`[ATLAS][Gemini] Fallback ke Local Heuristic (alasan: ${code})`);
+        const statusInfo = err && err.httpStatus ? ` http=${err.httpStatus}` : '';
+        console.warn(`[ATLAS][Gemini] Fallback ke Local Heuristic (code=${code}${statusInfo})`);
 
-        return LocalHeuristicAdapter.reply(normalizedMessage, safeCtx);
+        return safeLocalReply(normalizedMessage, safeCtx);
     }
 }
 
@@ -508,22 +626,28 @@ const HybridAdapter = {
 
     async reply(message, ctx) {
         const safeCtx = ctx || {};
+        const lang = safeCtx.lang || 'id';
         const normalizedMessage = typeof message === 'string' ? message.trim() : '';
 
         if (!normalizedMessage) {
-            return LocalHeuristicAdapter.reply(normalizedMessage, safeCtx);
+            return safeLocalReply(normalizedMessage, safeCtx);
         }
 
-        // Perbaikan Bug 2:
         // Deteksi krisis memakai hasil NLP lokal, bukan hanya regex kata.
-        const narrativeContext = buildNarrativeContextForMessage(normalizedMessage, safeCtx.lang);
+        // Analisis NLP dihitung SATU KALI di sini, lalu diteruskan ke
+        // Local/Gemini lewat ctx.__precomputedAnalysis supaya tidak
+        // dihitung ulang di jalur krisis maupun jalur fallback Gemini→local.
+        const analysis = runNLPAnalysis(normalizedMessage);
+        const narrativeContext = narrativeContextFromAnalysis(analysis, lang);
         const safetyRisk = assessMessageRisk(normalizedMessage, narrativeContext);
 
+        const ctxWithAnalysis = Object.assign({}, safeCtx, { __precomputedAnalysis: analysis });
+
         if (safetyRisk.isCrisis) {
-            return LocalHeuristicAdapter.reply(normalizedMessage, safeCtx);
+            return safeLocalReply(normalizedMessage, ctxWithAnalysis);
         }
 
-        return GeminiAdapter.reply(normalizedMessage, safeCtx);
+        return GeminiAdapter.reply(normalizedMessage, ctxWithAnalysis);
     },
 };
 
