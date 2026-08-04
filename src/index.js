@@ -493,6 +493,7 @@ async function callGeminiConsult(env, { topic, message, history, screeningContex
 
     const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
     const finishReason = candidate && candidate.finishReason;
+    console.log("[Gemini] finishReason =", finishReason);
 
     if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
         const e = new Error(`Respons Gemini diblokir oleh safety filter (finishReason: ${finishReason}).`);
@@ -509,6 +510,8 @@ async function callGeminiConsult(env, { topic, message, history, screeningContex
             .map((p) => p.text || '')
             .join('')
             .trim();
+            console.log("[Gemini] reply length =", text.length);
+console.log("[Gemini] preview =", text.substring(0, 200));
 
     if (!text) {
         const e = new Error('Respons Gemini kosong atau tidak terduga.');
