@@ -1,41 +1,37 @@
 /* =========================================
    ATLAS JIWA — Cloudflare Worker Entry Point (src/index.js)
 
-   PERUBAHAN PENTING (perbaikan error "Failed to load resource 404" di
-   /api/auth/login pada atlasjiwa.mursofi1.workers.dev):
+   [REVISI] Fitur "Konsultasi AI" (Gemini) SEKARANG berjalan LANGSUNG di
+   Worker ini, TIDAK LAGI melalui proxy ke backend Railway
+   (server/routes/gemini.routes.js -> gemini.service.js).
 
-   Sebelumnya file ini HANYA meneruskan (proxy) semua request /api/*
-   ke backend Express yang di-deploy terpisah di Railway
-   (atlasjiwa-production.up.railway.app). Karena repo yang sama juga
-   dipakai untuk deployment Railway itu, kode server/ Railway sempat
-   berisi konflik Git yang belum selesai — sehingga proses Railway
-   crash/tidak sinkron, dan setiap request ke /api/* dari Worker ikut
-   gagal (404 / tidak terhubung).
+   Alasan revisi:
+   POST /api/ai/consult sebelumnya di-proxy ke Railway. Railway
+   memvalidasi request dengan middleware requireAuth (Express) yang
+   TIDAK mengenali sesi JWT yang diterbitkan oleh Worker (Cloudflare D1
+   auth), sehingga request selalu berakhir 401 walau user sudah login
+   di sisi Worker.
 
-   Supaya situs Cloudflare ini BERDIRI SENDIRI dan tidak lagi tergantung
-   pada Railway untuk auth/screening, seluruh logic auth + screening
-   diimplementasikan LANGSUNG di Worker ini, memakai Cloudflare D1
-   sebagai database (lihat sql/d1_schema.sql) dan Web Crypto API untuk
-   hashing password + JWT sesi (lihat src/lib/crypto.js). Tidak ada
-   fetch() keluar ke Railway untuk /api/auth atau /api/screening.
+   Solusinya: Worker sekarang memanggil Google Gemini REST API secara
+   langsung menggunakan env.GEMINI_API_KEY, dan tetap memakai
+   getAuthUser()/D1 (JWT_SECRET) yang SUDAH ADA untuk otorisasi —
+   sistem auth Cloudflare D1 TIDAK diubah sama sekali. Tidak ada lagi
+   fetch() keluar ke Railway di Worker ini.
 
-   [REVISI] Fitur "Konsultasi AI" (Gemini) TETAP berjalan di backend
-   Railway (server/routes/gemini.routes.js -> gemini.service.js), BUKAN
-   di Worker ini. Sebelumnya Worker tidak meneruskan
-   POST /api/ai/consult sama sekali, sehingga request dari browser
-   (public/js/ai-adapter.js) berhenti di Worker dan menghasilkan 404
-   sebelum sempat mencapai Railway/Gemini. Worker sekarang menambahkan
-   SATU proxy khusus untuk endpoint ini saja:
-
-       Browser --POST /api/ai/consult--> Worker --proxy--> Railway --> Gemini
-
-   Proxy ini HANYA meneruskan request (cookie sesi, Authorization jika
-   ada, Content-Type, body JSON) dan meneruskan balik response Railway
-   apa adanya. Tidak ada logic Gemini, prompt, atau parsing hasil AI di
-   Worker ini — itu semua tetap 100% di Railway (gemini.service.js).
+       Browser --POST /api/ai/consult--> Worker --fetch--> Gemini API
 
    Worker ini menangani /api/auth/*, /api/screening (skor kuantitatif),
-   /api/users/* untuk admin, dan proxy /api/ai/consult ke Railway.
+   /api/users/* untuk admin, dan sekarang juga /api/ai/consult (Gemini
+   langsung).
+
+   Catatan deploy:
+   - Set secret Gemini di Worker (BUKAN di Railway lagi):
+       wrangler secret put GEMINI_API_KEY
+   - Opsional, override model (default "gemini-2.0-flash"):
+       wrangler secret put GEMINI_MODEL
+     atau tambahkan sebagai [vars] biasa di wrangler.toml.
+   - Railway/Express untuk endpoint /api/ai/consult tidak lagi dipakai
+     dan bisa dinonaktifkan/dihapus dari infra.
    ========================================= */
 
 import { hashPassword, comparePassword, signToken, verifyToken } from './lib/crypto.js';
@@ -75,6 +71,7 @@ async function getAuthUser(request, env) {
 
 // ---------------------------------------------------------
 // AUTH: POST /api/auth/register | login | logout, GET /api/auth/profile
+// (TIDAK DIUBAH — tetap 100% memakai Cloudflare D1 + Web Crypto)
 // ---------------------------------------------------------
 async function handleRegister(request, env) {
     const body = await request.json().catch(() => ({}));
@@ -183,6 +180,7 @@ async function handleProfile(request, env) {
 
 // ---------------------------------------------------------
 // SCREENING: POST /api/screening, GET /api/screening/:userid, GET /api/screening
+// (TIDAK DIUBAH)
 // ---------------------------------------------------------
 async function handleScreeningSubmit(request, env) {
     const authUser = await getAuthUser(request, env);
@@ -262,6 +260,7 @@ async function handleScreeningAll(request, env) {
 
 // ---------------------------------------------------------
 // USERS (admin): GET /api/users, GET /api/users/stats/summary
+// (TIDAK DIUBAH)
 // ---------------------------------------------------------
 async function handleUsersList(request, env) {
     const authUser = await getAuthUser(request, env);
@@ -306,97 +305,269 @@ async function handleUsersStats(request, env) {
 }
 
 // ---------------------------------------------------------
-// AI PROXY: POST /api/ai/consult -> Railway (server/routes/gemini.routes.js)
+// AI CONSULT: POST /api/ai/consult -> Google Gemini REST API (langsung)
 //
-// Worker TIDAK memanggil Gemini API sendiri dan TIDAK memvalidasi ulang
-// payload consult (topic/message/history/screeningContext) — itu semua
-// tetap tugas Railway (validateConsultBody + geminiService.consult).
-// Worker hanya bertugas meneruskan request browser ke Railway dan
-// meneruskan balik responsnya apa adanya, supaya:
-//   - Cookie sesi (atlas_session) tetap terkirim -> requireAuth di
-//     Railway tetap bisa mengenali user yang sama seperti di Worker.
-//   - Header Authorization (jika suatu saat dipakai) ikut diteruskan.
-//   - Body JSON diteruskan mentah (tidak diparse ulang) supaya tidak
-//     ada risiko payload berubah bentuk di tengah jalan.
+// [REVISI] Sebelumnya endpoint ini di-proxy ke Railway. Sekarang Worker
+// memanggil Gemini API langsung memakai env.GEMINI_API_KEY, sehingga:
+//   - Tidak ada lagi ketergantungan pada Railway/Express requireAuth.
+//   - Otorisasi tetap memakai getAuthUser()/D1 (cookie atlas_session +
+//     JWT_SECRET) yang sudah ada — TIDAK DIUBAH.
+//   - Format response ke browser tetap { reply, topic } supaya
+//     public/js/ai-adapter.js (postToGeminiConsult) tetap kompatibel
+//     tanpa perlu diubah.
+//   - Kode error (code) dikirim balik sesuai kontrak yang sudah dibaca
+//     ai-adapter.js: invalid_key, quota, timeout, server_error,
+//     bad_response — supaya mekanisme fallback ke LocalHeuristicAdapter
+//     di client tetap berjalan seperti sebelumnya.
 // ---------------------------------------------------------
-const AI_PROXY_TIMEOUT_MS = 25000; // Gemini bisa butuh waktu; beri jeda wajar sebelum dianggap "down"
+const GEMINI_TIMEOUT_MS = 20000; // Gemini bisa butuh waktu; beri jeda wajar sebelum dianggap timeout
+const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash';
+const GEMINI_MAX_OUTPUT_TOKENS = 1024;
 
-function resolveAiBackendUrl(env) {
-    // env.AI_BACKEND_URL bersifat OPSIONAL (override untuk staging/testing).
-    // Jika tidak di-set, default ke URL produksi Railway saat ini.
-    const base = (env.AI_BACKEND_URL || 'https://atlasjiwa-production.up.railway.app').replace(/\/+$/, '');
-    return `${base}/api/ai/consult`;
+function resolveGeminiModel(env) {
+    return (env.GEMINI_MODEL && String(env.GEMINI_MODEL).trim()) || GEMINI_DEFAULT_MODEL;
 }
 
-async function handleAiConsultProxy(request, env) {
-    const targetUrl = resolveAiBackendUrl(env);
+// Membangun system instruction dari topic + screeningContext yang
+// dikirim client (lihat sanitizeScreeningContextForGemini di
+// public/js/ai-adapter.js). Gemini TIDAK menghitung ulang skor/risk
+// level — itu tetap 100% hasil Screening/Summary Engine lokal.
+function buildGeminiSystemInstruction(topic, screeningContext) {
+    const lines = [];
 
-    // Hanya teruskan header yang benar-benar relevan untuk auth + payload.
-    // Tidak menambah/menghapus field body — body diteruskan sebagai bytes mentah.
-    const forwardHeaders = new Headers();
+    lines.push(
+        'Anda adalah asisten pendamping kesehatan mental pada aplikasi Atlas Jiwa. ' +
+            'Gunakan bahasa yang hangat, suportif, reflektif, dan tidak menghakimi. ' +
+            'Anda BUKAN pengganti diagnosis klinis, terapi, atau layanan darurat. ' +
+            'Anda TIDAK boleh menghitung ulang atau mengubah skor, tingkat risiko, ' +
+            'maupun hasil screening — itu semua sudah dihitung di sisi aplikasi. ' +
+            'Jika pengguna menunjukkan tanda krisis (ingin bunuh diri, menyakiti diri, ' +
+            'atau membahayakan orang lain), segera arahkan untuk menghubungi layanan ' +
+            'darurat atau profesional kesehatan mental tepercaya di lokasi mereka.'
+    );
 
-    const cookieHeader = request.headers.get('Cookie');
-    if (cookieHeader) forwardHeaders.set('Cookie', cookieHeader);
-
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader) forwardHeaders.set('Authorization', authHeader);
-
-    forwardHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
-
-    let requestBody;
-    try {
-        requestBody = await request.arrayBuffer();
-    } catch (err) {
-        return json({ error: 'Body request tidak valid.' }, 400);
+    if (topic) {
+        lines.push(`Topik konsultasi saat ini: "${String(topic).slice(0, 200)}".`);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), AI_PROXY_TIMEOUT_MS);
+    if (screeningContext) {
+        if (typeof screeningContext === 'string') {
+            lines.push(`Konteks hasil screening pengguna: ${screeningContext.slice(0, 3000)}`);
+        } else if (typeof screeningContext === 'object' && !Array.isArray(screeningContext)) {
+            const parts = [];
+            if (screeningContext.screeningType) parts.push(`jenis screening: ${screeningContext.screeningType}`);
+            if (screeningContext.riskLevel) parts.push(`tingkat risiko: ${screeningContext.riskLevel}`);
+            if (typeof screeningContext.score === 'number') parts.push(`skor komposit: ${screeningContext.score}`);
+            if (screeningContext.theme) parts.push(`tema: ${screeningContext.theme}`);
+            if (screeningContext.interpretation) parts.push(`interpretasi: ${screeningContext.interpretation}`);
+            if (Array.isArray(screeningContext.tags) && screeningContext.tags.length) {
+                parts.push(`tag: ${screeningContext.tags.join(', ')}`);
+            }
+            if (parts.length) {
+                lines.push(`Konteks hasil screening pengguna — ${parts.join('; ')}.`);
+            }
+        }
+    }
 
-    let railwayResponse;
+    lines.push('Jawab secara ringkas (maksimal beberapa paragraf pendek), empatik, dan relevan dengan topik di atas.');
+
+    return lines.join(' ');
+}
+
+// history: [{ role: 'user' | 'assistant', text: string }, ...]
+// (lihat sanitizeHistoryForGemini di public/js/ai-adapter.js)
+// Gemini memakai role 'user' / 'model', bukan 'assistant'.
+function mapHistoryToGeminiContents(history) {
+    if (!Array.isArray(history)) return [];
+    return history
+        .filter((turn) => turn && typeof turn.text === 'string' && ['user', 'assistant'].includes(turn.role))
+        .map((turn) => ({
+            role: turn.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: turn.text }],
+        }));
+}
+
+// Memanggil Gemini REST API langsung. Melempar Error dengan properti
+// `.code` (invalid_key | quota | timeout | bad_response | server_error)
+// dan `.status` (kode HTTP yang sebaiknya dikembalikan ke browser).
+async function callGeminiConsult(env, { topic, message, history, screeningContext }) {
+    const apiKey = env.GEMINI_API_KEY;
+    if (!apiKey || String(apiKey).trim().length < 16) {
+        const err = new Error(
+            '[Config] GEMINI_API_KEY belum di-set di Worker (wrangler secret put GEMINI_API_KEY), atau tidak valid.'
+        );
+        err.code = 'invalid_key';
+        err.status = 500;
+        throw err;
+    }
+
+    const model = resolveGeminiModel(env);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const contents = [...mapHistoryToGeminiContents(history), { role: 'user', parts: [{ text: message }] }];
+
+    const requestBody = {
+        contents,
+        systemInstruction: {
+            parts: [{ text: buildGeminiSystemInstruction(topic, screeningContext) }],
+        },
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+        },
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+    let response;
     try {
-        railwayResponse = await fetch(targetUrl, {
+        response = await fetch(url, {
             method: 'POST',
-            headers: forwardHeaders,
-            body: requestBody,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
             signal: controller.signal,
         });
     } catch (err) {
-        console.error('[Proxy /api/ai/consult] Railway tidak dapat dihubungi:', err.message);
-        return json({ error: 'AI backend unavailable' }, 503);
-    } finally {
         clearTimeout(timeoutId);
+        if (err && err.name === 'AbortError') {
+            const e = new Error('Permintaan ke Gemini API melebihi batas waktu.');
+            e.code = 'timeout';
+            e.status = 504;
+            throw e;
+        }
+        console.error('[Gemini] fetch gagal:', err.message);
+        const e = new Error('Gagal menghubungi Gemini API.');
+        e.code = 'server_error';
+        e.status = 502;
+        throw e;
     }
+    clearTimeout(timeoutId);
 
-    // Teruskan balik response Railway persis apa adanya (status + body),
-    // termasuk pesan/kode error dari gemini.routes.js (mis. quota, timeout,
-    // invalid_key) supaya public/js/ai-adapter.js tetap bisa membaca kode
-    // error yang sama seperti saat request langsung ke Railway.
-    let responseBody;
+    let data;
     try {
-        responseBody = await railwayResponse.arrayBuffer();
+        data = await response.json();
     } catch (err) {
-        console.error('[Proxy /api/ai/consult] Gagal membaca response Railway:', err.message);
-        return json({ error: 'AI backend unavailable' }, 503);
+        console.error('[Gemini] gagal parse response JSON:', err.message);
+        const e = new Error('Respons Gemini API tidak valid.');
+        e.code = 'bad_response';
+        e.status = 502;
+        throw e;
     }
 
-    const responseHeaders = new Headers();
-    const contentType = railwayResponse.headers.get('Content-Type');
-    if (contentType) responseHeaders.set('Content-Type', contentType);
+    if (!response.ok) {
+        const status = response.status;
+        const reason = (data && data.error && (data.error.status || data.error.message)) || '';
+        console.error('[Gemini] error response:', status, JSON.stringify(data && data.error));
 
-    return new Response(responseBody, {
-        status: railwayResponse.status,
-        headers: responseHeaders,
-    });
+        if (status === 400 && /API[_ ]?KEY/i.test(String(reason))) {
+            const e = new Error('Gemini API key tidak valid.');
+            e.code = 'invalid_key';
+            e.status = 401;
+            throw e;
+        }
+        if (status === 401 || status === 403) {
+            const e = new Error('Gemini API key tidak valid atau tidak memiliki akses.');
+            e.code = 'invalid_key';
+            e.status = 401;
+            throw e;
+        }
+        if (status === 429) {
+            const e = new Error('Kuota Gemini API habis atau rate limit tercapai.');
+            e.code = 'quota';
+            e.status = 429;
+            throw e;
+        }
+        if (status >= 500) {
+            const e = new Error('Gemini API sedang bermasalah di sisi server.');
+            e.code = 'server_error';
+            e.status = 502;
+            throw e;
+        }
+
+        const e = new Error(`Gemini API mengembalikan error (HTTP ${status}).`);
+        e.code = 'server_error';
+        e.status = 502;
+        throw e;
+    }
+
+    const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
+    const finishReason = candidate && candidate.finishReason;
+
+    if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+        const e = new Error(`Respons Gemini diblokir oleh safety filter (finishReason: ${finishReason}).`);
+        e.code = 'bad_response';
+        e.status = 502;
+        throw e;
+    }
+
+    const text =
+        candidate &&
+        candidate.content &&
+        Array.isArray(candidate.content.parts) &&
+        candidate.content.parts
+            .map((p) => p.text || '')
+            .join('')
+            .trim();
+
+    if (!text) {
+        const e = new Error('Respons Gemini kosong atau tidak terduga.');
+        e.code = 'bad_response';
+        e.status = 502;
+        throw e;
+    }
+
+    return text;
+}
+
+async function handleAiConsult(request, env) {
+    // Otorisasi TETAP memakai sistem auth Cloudflare D1 yang sudah ada
+    // (cookie atlas_session + JWT_SECRET). Tidak diubah sama sekali.
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return json({ error: 'Anda belum login.', code: 'unauthorized' }, 401);
+
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+        return json({ error: 'Body request tidak valid.', code: 'bad_response' }, 400);
+    }
+
+    const { topic, message, history, screeningContext } = body;
+
+    if (!topic || typeof topic !== 'string') {
+        return json({ error: 'topic wajib diisi.', code: 'bad_response' }, 400);
+    }
+    if (!message || typeof message !== 'string' || !message.trim()) {
+        return json({ error: 'message wajib diisi.', code: 'bad_response' }, 400);
+    }
+
+    try {
+        const reply = await callGeminiConsult(env, {
+            topic,
+            message: message.trim(),
+            history,
+            screeningContext,
+        });
+
+        // Format response DIPERTAHANKAN persis seperti kontrak lama
+        // supaya public/js/ai-adapter.js (postToGeminiConsult) tetap
+        // kompatibel tanpa perlu diubah.
+        return json({ reply, topic });
+    } catch (err) {
+        const code = err.code || 'server_error';
+        const status = err.status || 502;
+        console.error('[POST /api/ai/consult] Gagal memanggil Gemini:', code, err.message);
+        return json({ error: err.message || 'Gagal memproses konsultasi AI.', code }, status);
+    }
 }
 
 // ---------------------------------------------------------
 // ROUTER
 // Catatan arsitektur: proxy /api/agent/* ke FastAPI (opsional, via
 // FASTAPI_BASE_URL) SUDAH DIHAPUS. Auth, screening, dan users tetap
-// ditangani langsung di Worker (D1). Satu-satunya proxy keluar yang
-// masih aktif adalah POST /api/ai/consult -> Railway (Gemini), sesuai
-// arsitektur di wrangler.toml.
+// ditangani langsung di Worker (D1). POST /api/ai/consult sekarang
+// juga ditangani langsung di Worker ini (Gemini API), TIDAK LAGI
+// di-proxy ke Railway. Worker ini sudah tidak melakukan fetch()
+// keluar ke Railway sama sekali.
 // ---------------------------------------------------------
 async function handleApi(request, env) {
     const url = new URL(request.url);
@@ -419,8 +590,9 @@ async function handleApi(request, env) {
         if (pathname === '/api/users' && method === 'GET') return await handleUsersList(request, env);
         if (pathname === '/api/users/stats/summary' && method === 'GET') return await handleUsersStats(request, env);
 
-        // [REVISI] Proxy khusus fitur "Konsultasi AI" ke Railway/Gemini.
-        if (pathname === '/api/ai/consult' && method === 'POST') return await handleAiConsultProxy(request, env);
+        // [REVISI] Konsultasi AI ditangani langsung di Worker (Gemini API),
+        // tidak lagi diproxy ke Railway.
+        if (pathname === '/api/ai/consult' && method === 'POST') return await handleAiConsult(request, env);
 
         return json({ error: 'Endpoint tidak ditemukan.' }, 404);
     } catch (err) {
