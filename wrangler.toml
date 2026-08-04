@@ -1,26 +1,78 @@
-name = "atlasjiwa"
+# ==========================================================
+# AtlasJiwa Hackathon - Cloudflare Workers Configuration
+# ==========================================================
+
+name = "atlasjiwa-hackathon"
 main = "src/index.js"
-compatibility_date = "2026-08-02"
+compatibility_date = "2026-08-04"
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
 
-# ---------------------------------------------------------
-# Database D1 — WAJIB dibuat dulu sebelum deploy, lalu isi
-# `database_id` di bawah dengan hasil `wrangler d1 create atlasjiwa-db`.
-#
-#   1) wrangler d1 create atlasjiwa-db
-#      -> salin "database_id" dari output ke baris di bawah
-#   2) wrangler d1 execute atlasjiwa-db --remote --file=./sql/d1_schema.sql
-#   3) wrangler secret put JWT_SECRET
-#      -> isi dengan string acak panjang (mis. hasil `openssl rand -hex 32`)
-#   4) wrangler deploy
-#
-# Fitur "Konsultasi AI" tidak butuh secret/konfigurasi tambahan apa pun
-# di Worker ini -- berjalan 100% di browser (public/js/ai-adapter.js).
-# ---------------------------------------------------------
+# ==========================================================
+# Cloudflare D1 Database
+# ==========================================================
 [[d1_databases]]
 binding = "DB"
 database_name = "atlasjiwa-db"
 database_id = "b6077178-97f9-4adc-b7ca-b685cc0ff495"
+
+# ==========================================================
+# Deployment Notes
+# ==========================================================
+#
+# Worker Name
+#   atlasjiwa-hackathon
+#
+# Static Assets
+#   Folder public/ akan disajikan melalui binding ASSETS.
+#
+# AI Architecture
+#
+#   Local AI (Browser)
+#   ------------------
+#   - Screening Engine
+#   - NLP Engine
+#   - Summary Engine
+#   - Risk Scoring
+#   - Theme Detection
+#   - Crisis Detection
+#
+#   Gemini AI (Backend)
+#   -------------------
+#   Chatbot menggunakan Gemini API melalui backend Node.js
+#   (Railway/Express), bukan langsung dari Cloudflare Worker.
+#
+#   Browser
+#       │
+#       ▼
+#   Local NLP + Summary
+#       │
+#       ▼
+#   POST /api/ai/consult
+#       │
+#       ▼
+#   Railway Backend
+#       │
+#       ▼
+#   Gemini API
+#
+# Environment Variables
+#
+# Railway:
+#
+#   GEMINI_API_KEY
+#   GEMINI_MODEL=gemini-2.0-flash
+#   JWT_SECRET
+#   DATABASE_URL
+#
+# Cloudflare Worker:
+#
+#   JWT_SECRET (jika dipakai Worker)
+#
+# Deploy
+#
+#   wrangler deploy
+#
+# ==========================================================

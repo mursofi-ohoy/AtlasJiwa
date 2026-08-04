@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .core, .ring { fill: none; }
+    .ring { stroke: #3F6B66; }
+    .dot  { fill: #A97C42; }
+    .core { fill: #3F6B66; }
+    @media (prefers-color-scheme: dark) {
+      .ring { stroke: #7CACA5; }
+      .dot  { fill: #D6AD73; }
+      .core { fill: #7CACA5; }
+    }
+  </style>
+  <!-- orbit: lingkaran terbuka (bukan lingkaran penuh) -->
+  <circle class="ring" cx="16" cy="16" r="12.5" stroke-width="3"
+          stroke-linecap="round" stroke-dasharray="58.9 19.7"
+          transform="rotate(-90 16 16)"/>
+  <!-- titik "insight" di ujung orbit -->
+  <circle class="dot" cx="16" cy="3.5" r="3.1"/>
+  <!-- inti tenang di tengah -->
+  <circle class="core" cx="16" cy="16" r="5.6"/>
+</svg>
