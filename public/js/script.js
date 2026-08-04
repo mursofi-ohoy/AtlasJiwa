@@ -1457,16 +1457,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let agentChatSessionId = null;
 
     function appendAgentChatBubble(role, text, options) {
-        const opts = options || {};
-        const messagesEl = document.getElementById('agentChatMessages');
-        if (!messagesEl) return null;
-        const bubble = document.createElement('div');
-        bubble.className = `agent-chat-bubble ${role}${opts.crisis ? ' crisis' : ''}${opts.pending ? ' pending' : ''}`;
+    const opts = options || {};
+    const messagesEl = document.getElementById('agentChatMessages');
+    if (!messagesEl) return null;
+    const bubble = document.createElement('div');
+    bubble.className = `agent-chat-bubble ${role}${opts.crisis ? ' crisis' : ''}${opts.pending ? ' pending' : ''}`;
+
+    // ✅ TAMBAHAN: hanya render sebagai HTML jika eksplisit diminta
+    if (opts.html) {
+        bubble.innerHTML = text;
+    } else {
         bubble.textContent = text;
-        messagesEl.appendChild(bubble);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-        return bubble;
     }
+
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+}
 
     function setAgentChatCrisisBanner(show) {
         const panel = document.getElementById('agentChatPanel');
@@ -1475,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (show && !existing) {
             const banner = document.createElement('div');
             banner.className = 'agent-chat-crisis-banner';
-            banner.textContent = bi(
+            banner.innerHTML = bi(
                 '⚠ Jika Anda merasa dalam bahaya, segera hubungi layanan darurat atau profesional kesehatan mental tepercaya di lokasi Anda.',
                 '⚠ If you feel you are in danger, please contact emergency services or a trusted mental health professional in your area right away.'
             );
@@ -1493,21 +1500,22 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result = await window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType, currentLang);
             agentChatSessionId = result.sessionId;
-            statusEl.textContent = bi('Siap', 'Ready');
+            statusEl.innerHTML = bi('Siap', 'Ready');
             appendAgentChatBubble('assistant', result.response, { crisis: result.isCrisis });
             if (result.isCrisis) setAgentChatCrisisBanner(true);
             inputEl.disabled = false;
             sendBtn.disabled = false;
         } catch (err) {
             console.error('[ATLAS] Gagal membuka sesi konsultasi AI:', err);
-            statusEl.textContent = bi('Tidak tersedia saat ini', 'Currently unavailable');
-            appendAgentChatBubble(
-                'assistant',
-                bi(
-                    'Maaf, konsultasi AI sedang tidak dapat diakses. Hasil screening Anda di atas tetap tersimpan.',
-                    'Sorry, the AI consultation is currently unavailable. Your screening results above are still saved.'
-                )
-            );
+           statusEl.innerHTML = bi('Tidak tersedia saat ini', 'Currently unavailable');   // ← Bug 3
+appendAgentChatBubble(
+    'assistant',
+    bi(
+        'Maaf, konsultasi AI sedang tidak dapat diakses. Hasil screening Anda di atas tetap tersimpan.',
+        'Sorry, the AI consultation is currently unavailable. Your screening results above are still saved.'
+    ),
+    { html: true }   // ✅ TAMBAHAN — Bug 4
+);
         }
 
         async function handleSend() {
@@ -1518,8 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sendBtn.disabled = true;
 
             appendAgentChatBubble('user', text);
-            const pendingBubble = appendAgentChatBubble('assistant', bi('Mengetik…', 'Typing…'), { pending: true });
-
+const pendingBubble = appendAgentChatBubble('assistant', bi('Mengetik…', 'Typing…'), { pending: true, html: true });
             try {
                 const result = await window.AtlasAgent.sendMessage(agentChatSessionId, text, currentLang);
                 agentChatSessionId = result.sessionId;
@@ -1530,12 +1537,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('[ATLAS] Gagal mengirim pesan ke agent:', err);
                 if (pendingBubble) pendingBubble.remove();
                 appendAgentChatBubble(
-                    'assistant',
-                    bi(
-                        'Maaf, terjadi kendala saat menghubungi konsultasi AI. Coba lagi sebentar lagi.',
-                        'Sorry, there was a problem reaching the AI consultation. Please try again shortly.'
-                    )
-                );
+    'assistant',
+    bi(
+        'Maaf, terjadi kendala saat menghubungi konsultasi AI. Coba lagi sebentar lagi.',
+        'Sorry, there was a problem reaching the AI consultation. Please try again shortly.'
+    ),
+    { html: true }   // ✅ TAMBAHAN — Bug 5
+);
             } finally {
                 inputEl.disabled = false;
                 sendBtn.disabled = false;
