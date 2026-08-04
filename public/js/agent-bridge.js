@@ -33,6 +33,38 @@
 (function (global) {
     'use strict';
 
+    // ---------- [Gemini] Topic & history in-memory ----------
+    // Hanya dipakai jika provider aktif = 'gemini' (topic-selector.js yang
+    // mengisi lewat setTopic()). Provider 'local' TIDAK membaca variabel ini
+    // sama sekali (LocalHeuristicAdapter.reply/interpret tidak menerima
+    // parameter topic/history), jadi perilaku provider local tidak berubah.
+    // Disimpan murni di variabel JS module-scope -> otomatis hilang saat
+    // halaman di-reload (tidak ada persistence, sesuai requirement).
+    const MAX_HISTORY_TURNS = 5;
+    let currentTopic = null;
+    let chatHistory = []; // [{ role: 'user'|'assistant', text }]
+
+    function setTopic(topic) {
+        currentTopic = topic || null;
+        chatHistory = []; // ganti topic = mulai percakapan baru
+    }
+
+    function getTopic() {
+        return currentTopic;
+    }
+
+    function pushHistory(role, text) {
+        if (!text) return;
+        chatHistory.push({ role, text: String(text) });
+        if (chatHistory.length > MAX_HISTORY_TURNS) {
+            chatHistory = chatHistory.slice(-MAX_HISTORY_TURNS);
+        }
+    }
+
+    function resetHistory() {
+        chatHistory = [];
+    }
+
     function pickLang(biObj, lang) {
         if (!biObj) return null;
         return (lang === 'en' ? biObj.en : biObj.id) || biObj.id || biObj.en || null;
@@ -55,6 +87,11 @@
             interpretation: pickLang(overallSummary && overallSummary.interpretation, lang),
             tags: ((overallSummary && overallSummary.tags) || []).map((t) => pickLang(t, lang)).filter(Boolean),
             lang,
+            // [Gemini] Field tambahan — diabaikan begitu saja oleh LocalHeuristicAdapter
+            // (dia hanya membaca screeningType/score/riskLevel/theme/interpretation/lang),
+            // jadi aman ditambahkan tanpa mengubah perilaku provider local.
+            topic: currentTopic,
+            history: chatHistory.slice(),
         };
     }
 
@@ -83,7 +120,16 @@
      */
     async function sendMessage(sessionId, messageText, currentLang) {
         const adapter = global.AtlasAIAdapter.getActiveAdapter();
-        const result = await adapter.reply(messageText, { lang: currentLang || 'id' });
+        // [Gemini] topic & history disertakan di ctx; LocalHeuristicAdapter
+        // mengabaikannya (lihat ai-adapter.js), jadi provider local tidak berubah.
+        const ctx = { lang: currentLang || 'id', topic: currentTopic, history: chatHistory.slice() };
+        const result = await adapter.reply(messageText, ctx);
+
+        // Catat ke history in-memory (maks 5 percakapan) HANYA setelah balasan
+        // berhasil didapat, supaya history tidak berisi giliran yang gagal.
+        pushHistory('user', messageText);
+        pushHistory('assistant', result.text);
+
         return {
             sessionId: sessionId || makeSessionId(),
             response: result.text,
@@ -91,5 +137,13 @@
         };
     }
 
-    global.AtlasAgent = { initSessionFromSummary, sendMessage };
+    global.AtlasAgent = {
+        initSessionFromSummary,
+        sendMessage,
+        // [Gemini] API tambahan untuk topic-selector.js / script.js.
+        // Tidak dipakai sama sekali oleh alur provider 'local' yang sudah ada.
+        setTopic,
+        getTopic,
+        resetHistory,
+    };
 })(window);

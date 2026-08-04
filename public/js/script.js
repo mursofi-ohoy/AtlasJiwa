@@ -1520,27 +1520,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusEl = document.getElementById('agentChatStatus');
         const inputEl = document.getElementById('agentChatInput');
         const sendBtn = document.getElementById('agentChatSendBtn');
+        const panelEl = document.getElementById('agentChatPanel');
         if (!statusEl || !window.AtlasAgent) return;
 
-        try {
-            const result = await window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType, currentLang);
-            agentChatSessionId = result.sessionId;
-            statusEl.innerHTML = `<span class="status-dot status-dot--online"></span>${bi('Siap', 'Ready')}`;
-            appendAgentChatBubble('assistant', result.response, { crisis: result.isCrisis });
-            if (result.isCrisis) setAgentChatCrisisBanner(true);
-            inputEl.disabled = false;
-            sendBtn.disabled = false;
-        } catch (err) {
-            console.error('[ATLAS] Gagal membuka sesi konsultasi AI:', err);
-           statusEl.innerHTML = `<span class="status-dot status-dot--offline"></span>${bi('Tidak tersedia saat ini', 'Currently unavailable')}`;   // ← Bug 3
-appendAgentChatBubble(
-    'assistant',
-    bi(
-        'Maaf, konsultasi AI sedang tidak dapat diakses. Hasil screening Anda di atas tetap tersimpan.',
-        'Sorry, the AI consultation is currently unavailable. Your screening results above are still saved.'
-    ),
-    { html: true }   // ✅ TAMBAHAN — Bug 4
-);
+        // Membuka sesi (dipisah jadi fungsi supaya bisa dipanggil langsung
+        // untuk provider local, ATAU ditunda sampai topic dipilih untuk
+        // provider gemini — lihat blok topic-selector di bawah).
+        async function startAgentSession() {
+            try {
+                const result = await window.AtlasAgent.initSessionFromSummary(overallSummary, screeningType, currentLang);
+                agentChatSessionId = result.sessionId;
+                statusEl.innerHTML = `<span class="status-dot status-dot--online"></span>${bi('Siap', 'Ready')}`;
+                appendAgentChatBubble('assistant', result.response, { crisis: result.isCrisis });
+                if (result.isCrisis) setAgentChatCrisisBanner(true);
+                inputEl.disabled = false;
+                sendBtn.disabled = false;
+            } catch (err) {
+                console.error('[ATLAS] Gagal membuka sesi konsultasi AI:', err);
+               statusEl.innerHTML = `<span class="status-dot status-dot--offline"></span>${bi('Tidak tersedia saat ini', 'Currently unavailable')}`;   // ← Bug 3
+    appendAgentChatBubble(
+        'assistant',
+        bi(
+            'Maaf, konsultasi AI sedang tidak dapat diakses. Hasil screening Anda di atas tetap tersimpan.',
+            'Sorry, the AI consultation is currently unavailable. Your screening results above are still saved.'
+        ),
+        { html: true }   // ✅ TAMBAHAN — Bug 4
+    );
+            }
         }
 
         async function handleSend() {
@@ -1580,6 +1586,32 @@ const pendingBubble = appendAgentChatBubble('assistant', bi('Mengetik…', 'Typi
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') handleSend();
         });
+
+        // [Gemini] Jika provider aktif = 'gemini', tampilkan topic selector dan
+        // TUNDA sesi chat sampai user memilih topik (input tetap disabled —
+        // sudah disabled secara default lewat atribut HTML di renderResults()).
+        // Jika topic-selector.js tidak dimuat, atau provider bukan 'gemini'
+        // (default project ini = 'local'), blok ini di-skip sepenuhnya dan
+        // startAgentSession() langsung dipanggil seperti perilaku semula —
+        // sama seperti kode asli sebelum perubahan ini.
+        const needsTopic = window.AtlasTopicSelector && window.AtlasTopicSelector.isNeeded();
+        if (needsTopic && panelEl) {
+            statusEl.innerHTML = `<span class="status-dot status-dot--pending"></span>${bi('Pilih topik untuk mulai', 'Choose a topic to start')}`;
+            const messagesEl = document.getElementById('agentChatMessages');
+            window.AtlasTopicSelector.init(
+                panelEl,
+                (topicId) => {
+                    window.AtlasAgent.setTopic(topicId);
+                    startAgentSession();
+                },
+                currentLang
+            );
+            const selectorEl = panelEl.querySelector('.agent-topic-selector');
+            if (selectorEl && messagesEl) panelEl.insertBefore(selectorEl, messagesEl);
+            return; // JANGAN mulai sesi sebelum topic dipilih
+        }
+
+        await startAgentSession();
     }
 
     /* ---------- Reset Button ---------- */

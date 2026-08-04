@@ -191,10 +191,115 @@
         };
     }
 
+    // ---------- Adapter Gemini (server/routes/gemini.routes.js -> Gemini API) ----------
+    // Panggil server (BUKAN Gemini API langsung dari browser) supaya API key
+    // tidak pernah menyentuh sisi klien. Jika permintaan gagal karena
+    // timeout/invalid key/quota/network/server error, otomatis fallback
+    // ke LocalHeuristicAdapter TANPA mengubah perilaku LocalHeuristicAdapter
+    // itu sendiri sama sekali.
+    const GEMINI_FALLBACK_CODES = new Set(['timeout', 'invalid_key', 'quota', 'network', 'server_error', 'bad_response']);
+    const GEMINI_REQUEST_TIMEOUT_MS = 12000;
+
+    async function postToGeminiConsult(payload) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
+        let res;
+        try {
+            res = await fetch('/api/ai/consult', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // wajib: endpoint pakai cookie sesi (requireAuth)
+                body: JSON.stringify(payload),
+                signal: controller.signal,
+            });
+        } catch (err) {
+            clearTimeout(timer);
+            if (err && err.name === 'AbortError') {
+                const e = new Error('Permintaan ke Gemini melebihi batas waktu.');
+                e.code = 'timeout';
+                throw e;
+            }
+            const e = new Error('Gagal menghubungi server (jaringan).');
+            e.code = 'network';
+            throw e;
+        }
+        clearTimeout(timer);
+
+        if (!res.ok) {
+            let code = 'server_error';
+            try {
+                const body = await res.json();
+                if (body && body.code) code = body.code;
+            } catch (_) {
+                // respons bukan JSON, biarkan code default
+            }
+            const e = new Error(`Gemini consult gagal (HTTP ${res.status}).`);
+            e.code = code;
+            throw e;
+        }
+
+        const data = await res.json();
+        if (!data || typeof data.reply !== 'string') {
+            const e = new Error('Respons Gemini tidak terduga.');
+            e.code = 'bad_response';
+            throw e;
+        }
+        return data.reply;
+    }
+
+    /**
+     * @param {string} kind 'interpret' | 'reply'
+     * ctx yang diteruskan boleh membawa `topic` (dari topic-selector.js)
+     * dan `history` (dari agent-bridge.js, maksimal 5 percakapan terakhir).
+     * Provider local TIDAK memakai field ini sama sekali, jadi menambahkan
+     * field ini aman untuk backward-compatibility.
+     */
+    async function geminiConsultWithFallback(kind, message, ctx) {
+        const safeCtx = ctx || {};
+        try {
+            if (!safeCtx.topic) {
+                // Tanpa topic (mis. topic-selector belum dipilih user), tidak ada
+                // dasar system prompt di server -> langsung pakai local, jangan
+                // memaksa request ke server.
+                throw Object.assign(new Error('Topic belum dipilih untuk provider gemini.'), { code: 'bad_response' });
+            }
+            const reply = await postToGeminiConsult({
+                topic: safeCtx.topic,
+                message,
+                history: safeCtx.history || [],
+            });
+            return { isCrisis: false, text: reply };
+        } catch (err) {
+            const code = (err && err.code) || 'server_error';
+            if (!GEMINI_FALLBACK_CODES.has(code)) throw err; // error tak dikenal: jangan diam-diam ditelan
+            console.warn(`[ATLAS][Gemini] Fallback ke Local Heuristic (alasan: ${code})`);
+            // Fallback: delegasikan penuh ke LocalHeuristicAdapter, TANPA mengubah
+            // perilaku/kode LocalHeuristicAdapter itu sendiri.
+            if (kind === 'interpret') return LocalHeuristicAdapter.interpret(safeCtx);
+            const text = await LocalHeuristicAdapter.reply(message, safeCtx);
+            return text;
+        }
+    }
+
+    const GeminiAdapter = {
+        id: 'gemini',
+        label: 'Gemini (server-side, via /api/ai/consult)',
+        async interpret(ctx) {
+            const result = await geminiConsultWithFallback('interpret', null, ctx);
+            // interpret() LocalHeuristicAdapter mengembalikan string biasa (bukan
+            // {isCrisis,text}) — samakan bentuk kembalian supaya agent-bridge.js
+            // (yang memanggil adapter.interpret langsung sbg response teks) tidak perlu berubah.
+            return typeof result === 'string' ? result : result.text;
+        },
+        async reply(message, ctx) {
+            return geminiConsultWithFallback('reply', message, ctx);
+        },
+    };
+
     const ADAPTERS = {
         local: LocalHeuristicAdapter,
         qwen: externalAdapterStub('qwen', 'Qwen (belum dikonfigurasi)'),
-        gemini: externalAdapterStub('gemini', 'Gemini (belum dikonfigurasi)'),
+        gemini: GeminiAdapter,
         openai: externalAdapterStub('openai', 'OpenAI (belum dikonfigurasi)'),
         claude: externalAdapterStub('claude', 'Claude (belum dikonfigurasi)'),
     };

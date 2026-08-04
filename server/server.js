@@ -19,6 +19,7 @@ const { runMigrations } = require('./migrate');
 const authRoutes = require('./routes/auth.routes');
 const usersRoutes = require('./routes/users.routes');
 const screeningRoutes = require('./routes/screening.routes');
+const geminiRoutes = require('./routes/gemini.routes'); // [Gemini] fitur chatbot, lihat gemini.routes.js
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -67,11 +68,14 @@ app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/screening', screeningRoutes);
+app.use('/api/ai', geminiRoutes); // [Gemini] opsional — hanya dipanggil jika AI_CONFIG.provider = 'gemini' di ai-adapter.js
 // Catatan arsitektur: proxy ke FastAPI (backend/app/agent_api.py,
 // Qwen/Ollama) SUDAH DIHAPUS. Backend sekarang hanya menangani
 // auth (/api/auth), manajemen user (/api/users), dan penyimpanan
 // skor screening (/api/screening). Seluruh interpretasi/konsultasi
-// AI berjalan di browser — lihat public/js/ai-adapter.js.
+// AI berjalan di browser secara default (lihat public/js/ai-adapter.js);
+// /api/ai/consult (gemini.routes.js) adalah endpoint OPSIONAL yang hanya
+// dipakai bila provider AI diganti ke 'gemini'.
 
 // ---------------------------------------------------------
 // Frontend statis (HTML/CSS/JS di /public)
