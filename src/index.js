@@ -322,7 +322,7 @@ async function handleUsersStats(request, env) {
 // ---------------------------------------------------------
 const GEMINI_TIMEOUT_MS = 20000; // Gemini bisa butuh waktu; beri jeda wajar sebelum dianggap timeout
 const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash';
-const GEMINI_MAX_OUTPUT_TOKENS = 1024;
+const GEMINI_MAX_OUTPUT_TOKENS = 2048;
 
 function resolveGeminiModel(env) {
     return (env.GEMINI_MODEL && String(env.GEMINI_MODEL).trim()) || GEMINI_DEFAULT_MODEL;
