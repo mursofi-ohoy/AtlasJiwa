@@ -1,38 +1,40 @@
 # ATLAS JIWA — Full-Stack Setup
 
-Platform edukasi dan pre-clinical behavioral screening untuk memahami pola kendali impuls dan perilaku adiktif.
+An educational platform and pre-clinical behavioral screening system designed to help users understand impulse control patterns and addictive behaviors.
 
-Frontend statis (HTML/CSS/Vanilla JS) + backend Node.js/Express + PostgreSQL (CockroachDB).
+Static frontend (HTML/CSS/Vanilla JavaScript) + Node.js/Express backend + PostgreSQL (CockroachDB).
 
-## Arsitektur Terbaru
+## Latest Architecture
 
-Backend utama Node.js/Express menangani autentikasi pengguna, otorisasi, penyimpanan hasil screening terstruktur, serta menjadi AI gateway untuk fitur konsultasi Gemini.
+The primary Node.js/Express backend is responsible for user authentication, authorization, structured screening result storage, and serving as the AI gateway for Google Gemini consultations.
 
-Analisis NLP kualitatif, ekstraksi pola perilaku, explainable scoring, dan ringkasan screening dilakukan lokal di browser menggunakan **Explainable Rule-Based NLP Engine** yang terdiri dari:
+Qualitative NLP analysis, behavioral pattern extraction, explainable scoring, and screening summary generation are performed locally in the browser using an **Explainable Rule-Based NLP Engine**, consisting of:
 
-- `keyword-dictionary.js`
-- `nlp-engine.js`
-- `summary-engine.js`
+* `keyword-dictionary.js`
+* `nlp-engine.js`
+* `summary-engine.js`
 
-Fitur **"Konsultasi Singkat dengan Atlas Jiwa AI"** menggunakan Google Gemini API melalui backend Express (`gemini.routes.js` + `gemini.service.js`).
+The **"Brief Consultation with Atlas Jiwa AI"** feature is powered by the Google Gemini API through the Express backend (`gemini.routes.js` + `gemini.service.js`).
 
-`public/js/ai-adapter.js` mengirim:
+`public/js/ai-adapter.js` sends:
 
-- `topic`
-- `message`
-- `history` (opsional)
-- `screeningContext` (structured)
+* `topic`
+* `message`
+* `history` (optional)
+* `screeningContext` (structured)
 
-`public/js/ai-adapter.js` tidak mengirim:
+`public/js/ai-adapter.js` does **not** send:
 
-- jawaban naratif screening mentah;
-- raw NLP output.
+* raw narrative screening responses;
+* raw NLP outputs.
 
-Backend hanya meneruskan `topic`, `message`, `history` (opsional), dan `screeningContext` terstruktur kepada Gemini, bukan jawaban naratif mentah hasil screening.
+The backend forwards only `topic`, `message`, optional `history`, and structured `screeningContext` to Gemini. Raw narrative screening responses are never transmitted.
 
-Database CockroachDB hanya menyimpan akun pengguna dan hasil screening terstruktur berupa nilai kuantitatif serta metadata analisis yang telah diringkas.
+CockroachDB stores only user accounts and structured screening outcomes, including quantitative scores and summarized analytical metadata.
 
-## Struktur Project
+---
+
+# Project Structure
 
 ```text
 atlas-jiwa/
@@ -49,42 +51,42 @@ atlas-jiwa/
  │   │
  │   └── js/
  │       ├── keyword-dictionary.js
- │       │       <- kamus axis untuk explainable rule-based NLP
+ │       │       <- Explainable Rule-Based NLP keyword dictionary
  │       │
  │       ├── nlp-engine.js
- │       │       <- explainable rule-based NLP semantic analysis
+ │       │       <- semantic analysis engine
  │       │
  │       ├── summary-engine.js
- │       │       <- composite risk scoring & structured summary
+ │       │       <- composite scoring & structured summary
  │       │
  │       ├── ai-adapter.js
- │       │       <- adapter komunikasi frontend untuk endpoint konsultasi AI (/api/ai/consult).
- │       │       <- mengirim topic, message, history, screeningContext; bukan raw jawaban screening.
+ │       │       <- frontend AI communication adapter
+ │       │       <- sends topic, message, history, and screeningContext
  │       │
  │       ├── screening-submit.js
- │       │       <- kirim hasil screening terstruktur
+ │       │       <- submits structured screening results
  │       │
  │       ├── auth-guard.js
- │       │       <- proteksi halaman autentikasi
+ │       │       <- authentication guard
  │       │
  │       ├── admin.js
- │       │       <- dashboard admin logic
+ │       │       <- admin dashboard logic
  │       │
  │       └── script.js
- │               <- UI screening & rendering hasil
+ │               <- screening UI & result rendering
  │
  ├── server/
  │   ├── server.js
  │   │       <- Express API entry point
  │   │
  │   ├── db.js
- │   │       <- PostgreSQL connection pool CockroachDB
+ │   │       <- CockroachDB PostgreSQL connection
  │   │
  │   ├── auth.js
- │   │       <- bcrypt & JWT helper
+ │   │       <- bcrypt & JWT helpers
  │   │
  │   ├── middleware.js
- │   │       <- auth, admin, validator, rate limiter
+ │   │       <- authentication, authorization, validation, rate limiting
  │   │
  │   ├── routes/
  │   │   ├── auth.routes.js
@@ -93,22 +95,22 @@ atlas-jiwa/
  │   │   └── gemini.routes.js
  │   │
  │   └── services/
- │         │
- │         ├── gemini.service.js    <- Gemini API integration
- │         │
- │         └── gemini-prompts.js    <- system instructions, safety constraints, response behavior rules
+ │         ├── gemini.service.js
+ │         └── gemini-prompts.js
  │
  └── sql/
       └── schema.sql
 ```
 
-## Lapisan Arsitektur
+---
 
-### 1. Frontend Client-Side Layer
+# Architecture Layers
 
-Frontend menjalankan **Explainable Rule-Based NLP Engine** secara lokal di browser.
+## 1. Frontend Client-Side Layer
 
-Komponen:
+The frontend executes the **Explainable Rule-Based NLP Engine** entirely within the browser.
+
+Components:
 
 ```text
 keyword-dictionary.js
@@ -118,127 +120,107 @@ nlp-engine.js
 summary-engine.js
 ```
 
-Fungsi:
+Responsibilities:
 
-- semantic keyword analysis;
-- axis detection;
-- behavioral pattern extraction;
-- composite risk scoring;
-- screening summary generation.
+* semantic keyword analysis
+* behavioral axis detection
+* behavioral pattern extraction
+* composite behavioral risk scoring
+* structured screening summary generation
 
-Jawaban naratif pengguna diproses lokal dan tidak dikirim sebagai raw text ke backend.
+Narrative screening responses are processed locally and never transmitted as raw text.
 
-### 2. Backend Application Layer
+---
 
-Node.js/Express bertanggung jawab untuk:
+## 2. Backend Application Layer
 
-- autentikasi pengguna;
-- JWT session management;
-- role authorization;
-- penyimpanan hasil screening terstruktur;
-- API sanitization;
-- request size limitation;
-- error handling;
-- AI gateway untuk Gemini.
+The Node.js/Express backend is responsible for:
 
-Backend tidak melakukan NLP screening.
+* user authentication
+* JWT session management
+* role-based authorization
+* structured screening result storage
+* API sanitization
+* request size limitation
+* error handling
+* AI gateway for Gemini
 
-Proses NLP kualitatif, ekstraksi pola perilaku, explainable scoring, dan pembuatan ringkasan screening dilakukan sepenuhnya di sisi client/browser menggunakan **Explainable Rule-Based NLP Engine**.
+The backend does **not** perform behavioral NLP analysis.
 
-Backend menerima data sesuai endpoint.
+All qualitative NLP, behavioral pattern extraction, explainable scoring, and structured summary generation are executed locally by the browser.
 
-Untuk penyimpanan screening melalui `POST /api/screening`:
+### Structured Screening Endpoint
 
-```text
+```json
 {
-  overallPercent,
-  overallLevel,
-  screeningType,
-  metadata
+  "overallPercent": 0,
+  "overallLevel": "",
+  "screeningType": "",
+  "metadata": {}
 }
 ```
 
-Untuk konsultasi Gemini melalui `POST /api/ai/consult`:
+### AI Consultation Endpoint
 
-```text
+```json
 {
-  topic,
-  message,
-  history,
-  screeningContext
+  "topic": "",
+  "message": "",
+  "history": [],
+  "screeningContext": {}
 }
 ```
 
-`screeningContext` adalah ringkasan terstruktur hasil screening dari sisi client, bukan teks jawaban mentah pengguna.
+`screeningContext` contains summarized structured screening information rather than raw user narratives.
 
-### 3. Gemini AI Gateway Layer
+---
 
-Konsultasi AI menggunakan Google Gemini API melalui backend Express.
+## 3. Gemini AI Gateway Layer
 
-Alur komunikasi:
+AI consultations are performed through Google Gemini using the Express backend.
+
+Communication flow:
 
 ```text
 Frontend Browser
-
-        |
+        │
         ▼
-
 public/js/ai-adapter.js
-
-        |
+        │
         ▼
-
 POST /api/ai/consult
-
-        |
+        │
         ▼
-
 server/routes/gemini.routes.js
-
-(auth,
-validation,
-sanitization,
-rate limiting,
-request size limitation,
-error handling)
-
-        |
+        │
         ▼
-
 server/services/gemini.service.js
-
-(system prompt,
-screening context,
-Gemini request,
-response/error handling)
-
-        |
+        │
         ▼
-
 Google Gemini API
 ```
 
-`gemini.routes.js` bertugas:
+`gemini.routes.js` handles:
 
-- autentikasi pengguna;
-- validasi topic;
-- validasi message;
-- sanitasi history chat;
-- validasi screeningContext;
-- rate limiting penggunaan AI;
-- membantu pembatasan ukuran request;
-- meneruskan error secara aman ke client.
+* authentication
+* topic validation
+* message validation
+* chat history sanitization
+* screeningContext validation
+* AI rate limiting
+* request size limitation
+* secure error handling
 
-`gemini.service.js` bertugas:
+`gemini.service.js` is responsible for:
 
-- membuat request ke Gemini API;
-- menyusun system prompt;
-- menggabungkan screening context;
-- menangani response/error Gemini.
+* building Gemini requests
+* composing system prompts
+* injecting structured screening context
+* handling Gemini responses and errors
 
-Gemini tidak melakukan perhitungan ulang screening.
+Gemini **does not** recalculate screening results.
 
-Gemini hanya menerima konteks terstruktur:
+Instead, it receives structured context such as:
 
 ```json
 {
@@ -250,125 +232,115 @@ Gemini hanya menerima konteks terstruktur:
 }
 ```
 
-Jawaban naratif screening tetap diproses lokal oleh Explainable Rule-Based NLP Engine.
+Narrative screening responses remain entirely on the client and are processed by the Explainable Rule-Based NLP Engine.
 
-## AI Safety Boundary
+---
 
-Atlas Jiwa AI dirancang sebagai assistant edukasi dan refleksi.
+# AI Safety Boundary
 
-Sistem tidak:
+Atlas Jiwa AI is designed as an educational and self-reflection assistant.
 
-- memberikan diagnosis medis;
-- menggantikan profesional kesehatan mental;
-- menentukan kondisi psikologis pengguna.
+It does **not**:
 
-AI memberikan informasi edukatif berdasarkan konteks yang diberikan pengguna.
+* provide medical diagnoses;
+* replace licensed mental health professionals;
+* determine a user's psychological condition.
 
-## Endpoint AI Gateway
+The AI delivers educational guidance based solely on the structured context provided.
 
-| Method | Endpoint          | Auth  | Fungsi                                  |
-| ------ | ----------------- | ----- | --------------------------------------- |
-| POST   | `/api/ai/consult` | login | Konsultasi Atlas Jiwa AI melalui Gemini |
+---
 
-## Privacy by Design
+# AI Endpoint
 
-CockroachDB menyimpan:
+| Method | Endpoint          | Authentication | Purpose                                                 |
+| ------ | ----------------- | -------------- | ------------------------------------------------------- |
+| POST   | `/api/ai/consult` | Required       | Brief consultation with Atlas Jiwa AI via Google Gemini |
 
-- `users`
-- `screening_results`
+---
 
-Data disimpan sebagai akun pengguna dan hasil screening terstruktur berupa nilai kuantitatif serta metadata analisis yang telah diringkas.
+# Privacy by Design
 
-Tidak menyimpan:
+CockroachDB stores only:
 
-- jawaban naratif pengguna;
-- raw NLP output;
-- prompt AI secara permanen di database;
-- history konsultasi AI secara permanen;
-- embedding;
-- hasil analisis AI yang tidak disimpan.
+* `users`
+* `screening_results`
 
-System prompt AI berada di source code, misalnya pada `server/services/gemini-prompts.js`, bukan disimpan di database.
+Stored data consists exclusively of user accounts, quantitative screening outcomes, and summarized analytical metadata.
 
-History chat dapat hidup sementara dalam request menuju Gemini, tetapi tidak disimpan secara permanen di database.
+The system does **not** permanently store:
 
-## Screening Pipeline
+* raw narrative screening responses
+* raw NLP outputs
+* AI prompts
+* AI conversation history
+* embeddings
+* temporary AI-generated analyses
+
+System prompts reside within the application source code (e.g., `server/services/gemini-prompts.js`) rather than inside the database.
+
+Chat history may exist temporarily during a Gemini request but is never stored permanently.
+
+---
+
+# Screening Pipeline
 
 ```text
-User Answers
-|
-▼
+User Responses
+      │
+      ▼
 Explainable Rule-Based NLP Engine
-|
-▼
+      │
+      ▼
 Summary Engine
-|
-▼
+      │
+      ▼
 Risk Score + Structured Summary
-|
-▼
-Node.js Express API
-|
-▼
+      │
+      ▼
+Node.js / Express API
+      │
+      ▼
 CockroachDB
 ```
 
-## AI Consultation Pipeline
+---
+
+# AI Consultation Pipeline
 
 ```text
 User Message + Screening Context
-
-        |
-        ▼
-
-Frontend ai-adapter.js
-
-        |
-        ▼
-
+            │
+            ▼
+Frontend (ai-adapter.js)
+            │
+            ▼
 POST /api/ai/consult
-
-        |
-        ▼
-
+            │
+            ▼
 gemini.routes.js
-
-(authentication,
-validation,
-sanitization,
-rate limiting,
-request size limitation,
-error handling)
-
-        |
-        ▼
-
+(Authentication, Validation, Sanitization, Rate Limiting)
+            │
+            ▼
 gemini.service.js
-
-(system prompt +
-screening context +
-Gemini request +
-response/error handling)
-
-        |
-        ▼
-
+(System Prompt + Structured Screening Context)
+            │
+            ▼
 Google Gemini API
-
-        |
-        ▼
-
-AI Response
+            │
+            ▼
+Educational AI Response
 ```
 
-## Prinsip Utama Arsitektur
+---
 
-Dengan arsitektur ini:
+# Core Architectural Principles
 
-- NLP tetap ringan dan explainable;
-- data naratif tetap berada di browser;
-- database hanya menyimpan hasil screening terstruktur;
-- Gemini digunakan sebagai pendamping edukasi/refleksi;
-- backend memiliki kontrol keamanan terhadap request AI;
-- LLM tidak menggantikan reasoning engine;
-- LLM menjadi interface edukasi di atas hasil analisis yang explainable.
+This architecture ensures that:
+
+* Explainable NLP remains lightweight and fully client-side.
+* Narrative user responses never leave the browser.
+* The database stores only structured screening outcomes.
+* Google Gemini serves as an educational and self-reflection assistant.
+* The backend enforces authentication, validation, and AI request security.
+* The Explainable Rule-Based NLP Engine remains the primary reasoning engine.
+* Large Language Models complement, rather than replace, the explainable behavioral analysis pipeline.
